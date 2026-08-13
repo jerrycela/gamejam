@@ -313,6 +313,111 @@ func test_stand_triggers_the_dealer_hole_reveal_presentation_automatically() -> 
 	assert_int(harness.action_bar.button_count()).is_equal(0)
 
 
+## L2 item 2 (翻底牌): begin_dealer_hole_reveal_presentation() has already
+## called RoundController.dealer_step() internally by the time STAND's
+## handler returns (the core's hole card is really revealed now), but the
+## flip Tween has not processed a single frame yet — the on-screen view
+## must still read face-down until the animation actually plays, proving
+## this is a genuine entrance rather than an instant swap.
+func test_dealer_hole_reveal_presentation_started_keeps_the_card_face_down_until_the_flip_plays() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-flip-start")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var stand_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.STAND:
+			stand_button = button
+	stand_button.pressed.emit()
+
+	var hole_view := harness.dealer_hand_view.get_child(harness.dealer_hand_view.get_child_count() - 1) as CardFaceView
+	assert_bool(hole_view.face_down).is_true()
+	assert_str(harness.presentation.active_token()).is_not_equal("")
+
+
+## Proves the actual reveal (face_down flips to false, real rank/suit set)
+## independently of full presentation completion — force_dealer_hole_reveal_animation_finished_for_test()
+## alone can't observe this because completion immediately triggers
+## refresh(), which rebuilds the whole hand from RoundController's events
+## and would mask a broken/no-op reveal just as easily as a correct one.
+func test_dealer_hole_reveal_animation_midpoint_reveals_the_real_card_before_completion() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-flip-midpoint")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var stand_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.STAND:
+			stand_button = button
+	stand_button.pressed.emit()
+
+	harness.gameplay.force_dealer_hole_reveal_animation_midpoint_for_test()
+
+	var hole_view := harness.dealer_hand_view.get_child(harness.dealer_hand_view.get_child_count() - 1) as CardFaceView
+	assert_bool(hole_view.face_down).is_false()
+	assert_str(hole_view.rank).is_equal("6")
+	assert_int(hole_view.suit).is_equal(CardFaceView.Suit.DIAMOND)
+	# The presentation itself is still blocking — only the visual face has
+	# swapped, completion is a separate later step (the second half of the
+	# flip + the finish callback).
+	assert_str(harness.presentation.active_token()).is_not_equal("")
+
+
+## Test-seam parity with force_deal_card_animation_finished_for_test(): the
+## synchronous finish path reveals the real hole card (6D, per
+## _full_round_cards()'s documented script) and drives the rest of the
+## dealer's turn exactly like the pre-animation synchronous notify path
+## already did in test_completing_the_reveal_drives_the_dealer_to_round_end_and_shows_the_result.
+func test_force_dealer_hole_reveal_animation_finished_for_test_reveals_the_real_hole_card_and_resolves_the_round() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-flip-force")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	# Matches _full_round_cards()'s documented script exactly (same reasoning
+	# as test_completing_the_reveal_drives_the_dealer_to_round_end_and_shows_the_result):
+	# skipping the player's own HIT here would leave 2H undrawn and shift it
+	# onto the dealer's hits instead, changing the dealer's final card count.
+	var hit_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			hit_button = button
+	hit_button.pressed.emit()
+	var stand_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.STAND:
+			stand_button = button
+	stand_button.pressed.emit()
+
+	harness.gameplay.force_dealer_hole_reveal_animation_finished_for_test()
+
+	assert_int(harness.controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_int(harness.controller.outcome()).is_equal(BlackjackOutcome.Type.DEALER_BUST)
+	assert_int(harness.dealer_hand_view.get_child_count()).is_equal(3)
+	for child in harness.dealer_hand_view.get_children():
+		assert_bool((child as CardFaceView).face_down).is_false()
+	var former_hole_card := harness.dealer_hand_view.get_child(1) as CardFaceView
+	assert_str(former_hole_card.rank).is_equal("6")
+	assert_int(former_hole_card.suit).is_equal(CardFaceView.Suit.DIAMOND)
+
+
+## Genuine end-to-end confidence check (real Tween, real wall-clock wait —
+## same style as test_deal_card_animation_completes_the_presentation_via_a_real_tween):
+## the flip itself, not the dwell safety net, completes the presentation.
+func test_dealer_hole_reveal_flip_completes_the_presentation_via_a_real_tween() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-flip-realtween")
+	harness.gameplay.override_dealer_hole_reveal_animation_timing_for_test(20)
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var stand_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.STAND:
+			stand_button = button
+	stand_button.pressed.emit()
+	assert_str(harness.presentation.active_token()).is_not_equal("")
+
+	await get_tree().create_timer(0.3).timeout
+
+	assert_str(harness.presentation.active_token()).is_equal("")
+	assert_int(harness.controller.current_state).is_equal(RoundController.State.ROUND_END)
+
+
 func test_completing_the_reveal_drives_the_dealer_to_round_end_and_shows_the_result() -> void:
 	var harness := _make_harness(_full_round_cards(), "shoe-gc-5")
 	harness.action_bar.deal_button().pressed.emit()

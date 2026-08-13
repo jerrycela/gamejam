@@ -56,6 +56,12 @@ const DEAL_CARD_ANIMATION_STAGGER_MS: int = 150
 const DEAL_CARD_ANIMATION_TWEEN_MS: int = 180
 const DEAL_CARD_ANIMATION_ENTRANCE_SCALE: float = 0.55
 
+## L2 item 2 (翻底牌): total flip duration (split into two equal halves —
+## see _play_dealer_hole_reveal_animation()). Kept comfortably under
+## PresentationController.DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS (300ms),
+## that constant's own safety net.
+const DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS: int = 240
+
 const _RANK_STRINGS := {
 	Card.Rank.ACE: "A",
 	Card.Rank.JACK: "J",
@@ -122,6 +128,10 @@ var _dealer_reaction_view: DealerReactionView = null
 # DEAL_CARD_ANIMATION_TWEEN_MS.
 var _deal_card_stagger_ms: int = DEAL_CARD_ANIMATION_STAGGER_MS
 var _deal_card_tween_ms: int = DEAL_CARD_ANIMATION_TWEEN_MS
+
+# Overridable only through override_dealer_hole_reveal_animation_timing_for_test();
+# production code must always read DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS.
+var _dealer_hole_reveal_tween_ms: int = DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS
 
 
 ## `ledger` is the same BetLedger instance the caller constructed
@@ -231,12 +241,14 @@ func _on_action_requested(action_id: StringName) -> void:
 
 
 ## Fires the instant a blocking presentation opens (docs/03 §3's "P->>M:
-## started" arrow) — this is where the entrance animation for DEAL_CARD
-## actually starts, well before completion. DEALER_HOLE_REVEAL and any
-## other kind are left alone here (out of this batch's scope).
+## started" arrow) — this is where both entrance animations (DEAL_CARD's
+## stagger, DEALER_HOLE_REVEAL's flip) actually start, well before
+## completion.
 func _on_presentation_started(kind: StringName, token: String) -> void:
 	if kind == &"DEAL_CARD":
 		_play_deal_card_animation(token)
+	elif kind == &"DEALER_HOLE_REVEAL":
+		_play_dealer_hole_reveal_animation(token)
 
 
 ## Renders the four initial cards face-up/face-down exactly as
@@ -298,6 +310,133 @@ func _finish_deal_card_animation(token: String) -> void:
 ## processed).
 func force_deal_card_animation_finished_for_test() -> void:
 	_finish_deal_card_animation(_presentation.active_token())
+
+
+## L2 item 2 (翻底牌): begin_dealer_hole_reveal_presentation() has already
+## called RoundController.dealer_step() by the time this fires (it's what
+## makes DEALER_HOLE_REVEAL start in the first place) — the core's hole
+## card is already really revealed in RoundController.events(), this is
+## purely the catch-up visual. The existing face-down CardFaceView already
+## sitting in _dealer_hand_view (placed there by the last refresh(), which
+## _after_player_action() always runs *before* opening this presentation —
+## see that function) is animated in place rather than replaced: scale.x
+## tweens to 0 (card reads as edge-on, like a real flip), the face/rank/suit
+## flip to their real values at that exact midpoint, then scale.x tweens
+## back to 1. scale.y is never touched, so the card never actually shrinks,
+## only appears to rotate.
+##
+## Worst case timing: DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS (240ms, split
+## into two 120ms halves) is comfortably inside
+## PresentationController.DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS (300ms),
+## the safety net behind this animation the same way DEAL_CARD_PRESENTATION_DWELL_MS
+## is behind _play_deal_card_animation().
+##
+## Interruption safety: identical reasoning to _play_deal_card_animation() —
+## the Tween is bound to the hole card's own view via view.create_tween();
+## if the fallback/dwell safety net wins the race instead,
+## _on_presentation_completed()'s refresh() rebuilds _dealer_hand_view from
+## scratch (fully revealed, no animation), freeing this view and its Tween
+## (including the finish callback) before either can act again.
+func _play_dealer_hole_reveal_animation(token: String) -> void:
+	var hole_view := _find_dealer_hole_card_view()
+	# No card shaped the way this animation expects (e.g. this
+	# GameplayController's own hand views are wired to a different
+	# RoundController instance than the one PresentationController is
+	# actually driving — tests/ui/test_l1_6_action_bar_legal_actions.gd
+	# exercises exactly this by re-setup()'ing PresentationController alone
+	# after GameBootstrap's own auto-wiring already ran). Deliberately NOT
+	# auto-completing here: this handler starting is not the same guarantee
+	# as a real animation being able to play, and immediately finishing
+	# would let a broken/mismatched driver silently swallow the blocking
+	# presentation before its own real caller (test or otherwise) gets to
+	# call notify_presentation_finished()/observe the block. Doing nothing
+	# leaves DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS / the fallback timer to
+	# complete it exactly as they would have before this animation existed.
+	if hole_view == null:
+		return
+	var revealed_card := _revealed_dealer_hole_card()
+	var half_dur := maxf(0.001, (_dealer_hole_reveal_tween_ms / 2.0) / 1000.0)
+	var tween := hole_view.create_tween()
+	tween.tween_property(hole_view, "scale:x", 0.0, half_dur)
+	tween.tween_callback(_reveal_hole_card_face.bind(hole_view, revealed_card))
+	tween.tween_property(hole_view, "scale:x", 1.0, half_dur)
+	tween.tween_callback(_finish_dealer_hole_reveal_animation.bind(token))
+
+
+## The flip's midpoint: scale.x has just reached 0 (card reads as edge-on),
+## this is the moment the face actually swaps from the hidden placeholder
+## to the real revealed identity — a named method (not an inline lambda)
+## specifically so tests/ui/test_gameplay_controller.gd can drive and assert
+## this exact moment via force_dealer_hole_reveal_animation_midpoint_for_test(),
+## independent of whether the presentation has fully completed yet (which
+## would otherwise immediately rebuild/overwrite this view via refresh()).
+func _reveal_hole_card_face(hole_view: CardFaceView, card: Card) -> void:
+	hole_view.face_down = false
+	if card != null:
+		hole_view.suit = _SUIT_MAP.get(card.suit, CardFaceView.Suit.CLUB)
+		hole_view.rank = _RANK_STRINGS.get(card.rank, str(card.rank))
+
+
+## Mirrors _finish_deal_card_animation()'s guard/reasoning exactly.
+func _finish_dealer_hole_reveal_animation(token: String) -> void:
+	if _presentation.active_token() != token:
+		return
+	_presentation.notify_presentation_finished(token)
+
+
+## Test seam: mirrors force_deal_card_animation_finished_for_test().
+func force_dealer_hole_reveal_animation_finished_for_test() -> void:
+	_finish_dealer_hole_reveal_animation(_presentation.active_token())
+
+
+## Test seam: drives just the flip's midpoint face-swap (see
+## _reveal_hole_card_face()) without completing the presentation — lets a
+## test observe the real-card-face-mid-flip state deterministically instead
+## of racing a real Tween. No-op (matching _play_dealer_hole_reveal_animation's
+## own defensive path) if there's no face-down card shaped the way this
+## animation expects.
+func force_dealer_hole_reveal_animation_midpoint_for_test() -> void:
+	var hole_view := _find_dealer_hole_card_view()
+	if hole_view == null:
+		return
+	_reveal_hole_card_face(hole_view, _revealed_dealer_hole_card())
+
+
+## Test seam: shortens the flip's own timing so a real Tween-driven test
+## can finish quickly. Never used by production wiring — mirrors
+## override_deal_card_animation_timing_for_test().
+func override_dealer_hole_reveal_animation_timing_for_test(tween_ms: int) -> void:
+	_dealer_hole_reveal_tween_ms = tween_ms
+
+
+## The dealer's hand's last child, if it's still showing face-down — the
+## card this batch's flip is meant to animate. Null (defensive no-op path
+## in _play_dealer_hole_reveal_animation()) if the hand doesn't look like
+## the shape this animation expects, e.g. no dealer hand rendered at all.
+func _find_dealer_hole_card_view() -> CardFaceView:
+	if _dealer_hand_view == null or _dealer_hand_view.get_child_count() == 0:
+		return null
+	var last_child := _dealer_hand_view.get_child(_dealer_hand_view.get_child_count() - 1)
+	if last_child is CardFaceView and (last_child as CardFaceView).face_down:
+		return last_child as CardFaceView
+	return null
+
+
+## The real hole card identity, read the same authoritative way
+## _known_dealer_cards() and _initial_deal_events_in_order() already do —
+## RoundEvent.DEALER_HOLE_CARD_REVEALED always carries the real card once
+## dealer_step() has actually revealed it (scripts/core/round_controller.gd),
+## scoped to the current round_id for the same _events-never-clears reason
+## documented elsewhere in this file.
+func _revealed_dealer_hole_card() -> Card:
+	var metadata := _controller.round_metadata()
+	var round_id := metadata.round_id if metadata != null else ""
+	if round_id.is_empty():
+		return null
+	for event in _controller.events():
+		if event.round_id == round_id and event.event_id == RoundEvent.DEALER_HOLE_CARD_REVEALED:
+			return event.card
+	return null
 
 
 ## Test seam: shortens the animation's own timing so a real Tween-driven
