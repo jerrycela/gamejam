@@ -17,6 +17,13 @@ extends GdUnitTestSuite
 ## 3. DealerIdleView was anchored full-rect + STRETCH_KEEP_ASPECT_CENTERED,
 ##    which scales the dealer to fill the *entire* viewport height instead
 ##    of just the upper region above the room background's table edge.
+## 4. (Found after fixing #3) DealerHandView's two cards stayed pinned to
+##    the very top of TableUI's Layout, which used to only cover the hair
+##    bun when the dealer filled the whole screen — once #3 confined the
+##    dealer to the upper 53.7%, that same fixed top position landed the
+##    cards squarely on the dealer's eyes instead (docs/01 §1: Dealer is
+##    the primary visual focus; L2's six reaction assets are all facial and
+##    would never be seen if the face stays covered mid-round).
 
 const VIEWPORT_SIZES: Array[Vector2i] = [
 	Vector2i(1080, 1920),
@@ -125,3 +132,40 @@ func test_dealer_idle_view_rect_ends_above_the_table_edge_region_at_every_refere
 		# Comfortably above full-height (was previously == size.y exactly);
 		# allow slack above/below the nominal 53.7% for anchor rounding.
 		assert_float(dealer_rect.end.y).is_less(size.y * 0.7)
+
+
+## Defect #4: DealerHandView must never land inside the dealer's own face —
+## checked against a vertical band *within DealerIdleView's own rendered
+## rect* (not the whole canvas), since defect #3's fix means that rect no
+## longer equals the canvas. 15%-45% of the rendered image's height is a
+## judgment call, not a pixel-measured crop: on this portrait-style bust
+## (hair bun -> forehead/eyes -> nose/mouth -> chin -> collar), that band
+## brackets "somewhere between the eyebrows and the chin" — wide enough to
+## catch "a card sits on the eyes" (the actual defect) without also
+## flagging cards that merely graze the hairline or collar, which
+## docs/01 §1's "Dealer is the primary visual focus" requirement doesn't
+## need to forbid.
+func test_dealer_hand_view_does_not_overlap_the_dealers_face_region_at_any_reference_size() -> void:
+	var runner := scene_runner("res://scenes/game_root.tscn")
+	var root: Node = runner.scene()
+	var table_ui := root.get_node("L1Root/TableUI") as Control
+	var dealer_hand_view := table_ui.find_child("DealerHandView", true, false) as Control
+	var dealer_idle_view := root.get_node("L3Root/DealerIdleView") as Control
+	var viewport := root.get_viewport()
+
+	for size: Vector2i in VIEWPORT_SIZES:
+		_apply_viewport_size(viewport, size)
+		await runner.simulate_frames(2)
+
+		var dealer_idle_rect := dealer_idle_view.get_global_rect()
+		var face_top := dealer_idle_rect.position.y + dealer_idle_rect.size.y * 0.15
+		var face_bottom := dealer_idle_rect.position.y + dealer_idle_rect.size.y * 0.45
+		var face_rect := Rect2(
+			dealer_idle_rect.position.x,
+			face_top,
+			dealer_idle_rect.size.x,
+			face_bottom - face_top,
+		)
+
+		var hand_rect := dealer_hand_view.get_global_rect()
+		assert_bool(hand_rect.intersects(face_rect)).is_false()

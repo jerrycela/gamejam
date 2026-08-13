@@ -163,6 +163,24 @@ theme_override_constants/margin_bottom = 60
 layout_mode = 2
 theme_override_constants/separation = 24
 
+[node name="TopSpacer" type="Control" parent="L1Root/TableUI/Layout"]
+## L1-5 defect #4 fix: DealerHandView used to be the Layout's first child,
+## pinned to TableUI's top margin. That was only safe while DealerIdleView
+## filled the whole screen (the cards landed on the hair bun, above the
+## face). Once defect #3 confined the dealer to the upper 53.7% of the
+## canvas, that same fixed top position put the cards squarely on the
+## dealer's eyes instead (docs/01 §1: Dealer is the primary visual focus;
+## the six L2 facial-reaction assets would never be seen with the face
+## covered). This spacer — an EXPAND_FILL Control sharing the Layout's
+## flexible middle space with CenterSpacer at a 3:1 ratio — pushes
+## DealerHandView down to roughly the table-edge line instead (cards
+## dealt onto the table reads as more natural than cards floating beside
+## a face anyway), expressed as a stretch ratio rather than a fixed pixel
+## offset so it holds across all three reference viewport sizes.
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 3.0
+
 [node name="DealerHandView" type="HBoxContainer" parent="L1Root/TableUI/Layout"]
 layout_mode = 2
 size_flags_horizontal = 4
@@ -180,14 +198,16 @@ rank = "10"
 
 [node name="CenterSpacer" type="Control" parent="L1Root/TableUI/Layout"]
 ## Reserved for L3 (docs/01_GAME_AND_LAYER_SPEC.md:29 / team-lead-approved
-## zoning: dealer hand pinned to top edge, player hand + ActionBar pinned to
-## bottom edge, center left empty so L3's Dealer/background stays visible).
-## SIZE_EXPAND_FILL makes it consume all leftover vertical space at any
-## viewport height/aspect instead of a fixed pixel gap, so L1-5's three
-## viewport sizes reflow instead of the top/bottom clusters drifting toward
-## the middle or off-screen.
+## zoning). Previously the *only* flexible gap, sitting below DealerHandView
+## and above BottomCluster; now shares that role with TopSpacer above (see
+## its comment) at a 1:3 ratio, so most of the flexible space goes above
+## the dealer's hand and this keeps a smaller reserved gap between the
+## dealer's hand and BottomCluster. SIZE_EXPAND_FILL + an explicit
+## stretch ratio (not a fixed pixel gap) is what makes both spacers reflow
+## together across L1-5's three viewport sizes instead of drifting.
 layout_mode = 2
 size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
 
 [node name="ResultBanner" type="Label" parent="L1Root/TableUI/Layout/CenterSpacer"]
 ## Transient result text (WIN/LOSE/PUSH/...) is the one L1 element allowed to
