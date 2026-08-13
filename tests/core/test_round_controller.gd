@@ -695,6 +695,532 @@ func test_surrender_after_dealer_natural_already_resolved_is_rejected() -> void:
 	assert_int(ledger.available_chips).is_equal(900)
 
 
+func test_dealer_step_first_call_only_reveals_the_hole_card() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-reveal-only")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-reveal-only")).is_true()
+	assert_bool(controller.stand()).is_true()
+	var baseline_events := controller.events().size()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.DEALER_TURN)
+	assert_bool(controller.has_outcome()).is_false()
+	assert_int(shoe.draw_index()).is_equal(4)
+
+	var new_events := controller.events()
+	assert_int(new_events.size()).is_equal(baseline_events + 1)
+	var reveal_event := new_events[new_events.size() - 1]
+	assert_str(reveal_event.event_id).is_equal(RoundEvent.DEALER_HOLE_CARD_REVEALED)
+	assert_object(reveal_event.card).is_same(cards[3])
+	assert_bool(reveal_event.face_up).is_true()
+
+
+func test_dealer_step_hits_exactly_one_card_when_hard_total_is_below_17() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.NINE, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.SEVEN, Card.Suit.DIAMONDS),
+		_card(Card.Rank.FIVE, Card.Suit.HEARTS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-hard-16-hit")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-hard-16-hit")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+	var baseline_events := controller.events().size()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.DEALER_TURN)
+	assert_bool(controller.has_outcome()).is_false()
+	assert_int(shoe.draw_index()).is_equal(5)
+
+	var new_events := controller.events()
+	assert_int(new_events.size()).is_equal(baseline_events + 1)
+	var hit_event := new_events[new_events.size() - 1]
+	assert_str(hit_event.event_id).is_equal(RoundEvent.DEALER_CARD_DEALT)
+	assert_str(hit_event.hand_owner).is_equal(RoundEvent.HAND_DEALER)
+	assert_object(hit_event.card).is_same(cards[4])
+
+
+func test_dealer_step_stands_on_hard_17_without_drawing() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.EIGHT, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.EIGHT, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-hard-17-stand")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-hard-17-stand")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(shoe.draw_index()).is_equal(4)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_true()
+	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.DEALER_WIN)
+	assert_int(ledger.committed_bet).is_equal(0)
+	assert_int(ledger.available_chips).is_equal(900)
+
+
+func test_dealer_step_stands_on_soft_17_and_player_wins() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-soft-17-stand")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-soft-17-stand")).is_true()
+	assert_int(controller.current_state).is_equal(RoundController.State.PLAYER_TURN)
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(shoe.draw_index()).is_equal(4)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_true()
+	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.PLAYER_WIN)
+	assert_int(ledger.committed_bet).is_equal(0)
+	assert_int(ledger.available_chips).is_equal(1100)
+
+
+func test_dealer_step_bust_after_hit_resolves_dealer_bust() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.NINE, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.SEVEN, Card.Suit.DIAMONDS),
+		_card(Card.Rank.EIGHT, Card.Suit.HEARTS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-bust")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-bust")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(shoe.draw_index()).is_equal(5)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_true()
+	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.DEALER_BUST)
+	assert_int(ledger.committed_bet).is_equal(0)
+	assert_int(ledger.available_chips).is_equal(1100)
+
+
+func test_dealer_step_resolves_dealer_win_when_dealer_total_is_higher() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.EIGHT, Card.Suit.HEARTS),
+		_card(Card.Rank.NINE, Card.Suit.SPADES),
+		_card(Card.Rank.SEVEN, Card.Suit.CLUBS),
+		_card(Card.Rank.NINE, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-win")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-win")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_true()
+	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.DEALER_WIN)
+	assert_int(ledger.available_chips).is_equal(900)
+
+
+func test_dealer_step_resolves_push_when_totals_are_equal() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.EIGHT, Card.Suit.SPADES),
+		_card(Card.Rank.EIGHT, Card.Suit.CLUBS),
+		_card(Card.Rank.NINE, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-push")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-push")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_true()
+	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.PUSH)
+	assert_int(ledger.available_chips).is_equal(1000)
+
+
+func test_dealer_step_aborts_and_refunds_when_shoe_is_exhausted_mid_draw() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.NINE, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.SEVEN, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-dealer-exhausted")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-dealer-exhausted")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()
+
+	assert_bool(controller.dealer_step()).is_false()
+
+	assert_int(shoe.draw_index()).is_equal(4)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.has_outcome()).is_false()
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_SHOE_EXHAUSTED)
+	assert_int(ledger.committed_bet).is_equal(0)
+	assert_int(ledger.available_chips).is_equal(1000)
+
+
+func test_dealer_step_outside_dealer_turn_is_rejected() -> void:
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected([], "shoe-dealer-step-wrong-state")
+	var controller := RoundController.create_injected(shoe, ledger)
+
+	assert_bool(controller.dealer_step()).is_false()
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_INVALID_STATE)
+
+
+func test_begin_presentation_empties_legal_actions_and_rejects_player_commands() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.TWO, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-barrier-blocks")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-barrier-blocks")).is_true()
+	assert_array(controller.legal_actions()).contains_exactly([
+		RoundController.ACTION_HIT,
+		RoundController.ACTION_STAND,
+		RoundController.ACTION_DOUBLE,
+		RoundController.ACTION_SURRENDER,
+	])
+
+	assert_bool(controller.begin_presentation("token-1")).is_true()
+
+	assert_array(controller.legal_actions()).is_empty()
+	assert_bool(controller.hit()).is_false()
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_BLOCKING)
+	assert_bool(controller.stand()).is_false()
+	assert_bool(controller.double()).is_false()
+	assert_bool(controller.surrender()).is_false()
+	assert_int(shoe.draw_index()).is_equal(4)
+
+
+func test_begin_presentation_rejects_empty_token_and_a_second_concurrent_token() -> void:
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected([], "shoe-barrier-validation")
+	var controller := RoundController.create_injected(shoe, ledger)
+
+	assert_bool(controller.begin_presentation("")).is_false()
+
+	assert_bool(controller.begin_presentation("token-a")).is_true()
+	assert_bool(controller.begin_presentation("token-b")).is_false()
+
+	assert_bool(controller.complete_presentation("token-b")).is_false()
+	assert_bool(controller.complete_presentation("token-a")).is_true()
+
+
+func test_complete_presentation_with_matching_token_restores_legal_actions() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.TWO, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+		_card(Card.Rank.FOUR, Card.Suit.HEARTS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-barrier-unblock")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-barrier-unblock")).is_true()
+	assert_bool(controller.begin_presentation("token-unblock")).is_true()
+
+	assert_bool(controller.complete_presentation("token-unblock")).is_true()
+
+	assert_array(controller.legal_actions()).contains_exactly([
+		RoundController.ACTION_HIT,
+		RoundController.ACTION_STAND,
+		RoundController.ACTION_DOUBLE,
+		RoundController.ACTION_SURRENDER,
+	])
+	assert_bool(controller.hit()).is_true()
+	assert_int(shoe.draw_index()).is_equal(5)
+
+
+func test_complete_presentation_with_mismatched_token_stays_blocked() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.TWO, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-barrier-mismatch")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-barrier-mismatch")).is_true()
+	assert_bool(controller.begin_presentation("token-real")).is_true()
+
+	assert_bool(controller.complete_presentation("token-imposter")).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_TOKEN_MISMATCH)
+	assert_array(controller.legal_actions()).is_empty()
+	assert_bool(controller.hit()).is_false()
+
+
+func test_late_completion_after_the_first_matching_token_already_unlocked_is_ineffective() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.TWO, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+		_card(Card.Rank.FOUR, Card.Suit.HEARTS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-barrier-exactly-once")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-barrier-exactly-once")).is_true()
+	assert_bool(controller.begin_presentation("token-race")).is_true()
+
+	# Simulates the fallback timeout reaching the controller first and
+	# unlocking the barrier; the game then advances (HIT) before the original,
+	# now-late completion signal for the same token finally arrives.
+	assert_bool(controller.complete_presentation("token-race")).is_true()
+	assert_bool(controller.hit()).is_true()
+	assert_int(shoe.draw_index()).is_equal(5)
+
+	assert_bool(controller.complete_presentation("token-race")).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_TOKEN_MISMATCH)
+	assert_int(shoe.draw_index()).is_equal(5)
+	assert_bool(controller.begin_presentation("token-next")).is_true()
+	assert_bool(controller.complete_presentation("token-next")).is_true()
+
+
+func test_dealer_step_is_rejected_while_presentation_is_blocking() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-barrier-dealer-step")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-barrier-dealer-step")).is_true()
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.begin_presentation("token-dealer")).is_true()
+
+	assert_bool(controller.dealer_step()).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_BLOCKING)
+	assert_int(shoe.draw_index()).is_equal(4)
+
+
+func test_next_round_is_rejected_before_round_end_without_side_effects() -> void:
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected([], "shoe-next-round-wrong-state-betting")
+	var controller := RoundController.create_injected(shoe, ledger)
+
+	assert_bool(controller.next_round()).is_false()
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_INVALID_STATE)
+	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
+
+	var cards: Array[Card] = [
+		_card(Card.Rank.NINE, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.TWO, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+	]
+	var shoe2 := DeckShoe.create_injected(cards, "shoe-next-round-wrong-state-player-turn")
+	var controller2 := RoundController.create_injected(shoe2, ledger)
+	assert_bool(controller2.place_bet(100)).is_true()
+	assert_bool(controller2.deal("round-next-round-wrong-state")).is_true()
+
+	assert_bool(controller2.next_round()).is_false()
+
+	assert_str(controller2.last_error).is_equal(RoundController.ERROR_INVALID_STATE)
+	assert_int(controller2.current_state).is_equal(RoundController.State.PLAYER_TURN)
+	assert_int(ledger.selected_bet).is_equal(100)
+
+
+func test_next_round_retains_the_shoe_at_exactly_20_remaining_cards_and_resets_round_state() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.ACE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.KING, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	for _i in range(20):
+		cards.append(_card(Card.Rank.TWO, Card.Suit.HEARTS))
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-retain-at-20")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-retain-at-20")).is_true()
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_int(shoe.remaining_count()).is_equal(20)
+	assert_array(controller.legal_actions()).contains_exactly([RoundController.ACTION_NEXT_ROUND])
+
+	assert_bool(controller.next_round()).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
+	assert_bool(controller.has_active_round()).is_false()
+	assert_bool(controller.has_outcome()).is_false()
+	assert_int(ledger.selected_bet).is_equal(BetLedger.MINIMUM_BET)
+	assert_int(ledger.committed_bet).is_equal(0)
+
+	assert_bool(controller.deal("round-retain-at-20-second")).is_true()
+	assert_int(shoe.draw_index()).is_equal(8)
+
+
+func test_next_round_requires_an_explicit_replacement_shoe_below_20_remaining_cards() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.ACE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.KING, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	for _i in range(15):
+		cards.append(_card(Card.Rank.TWO, Card.Suit.HEARTS))
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-requires-replacement")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-requires-replacement")).is_true()
+	assert_int(shoe.remaining_count()).is_equal(15)
+
+	assert_bool(controller.next_round()).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_NEXT_SHOE_REQUIRED)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_int(ledger.selected_bet).is_equal(100)
+
+	assert_bool(controller.next_round("shoe-replacement-below-20", 999)).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
+	assert_int(ledger.selected_bet).is_equal(BetLedger.MINIMUM_BET)
+
+
+func test_next_round_replacement_shoe_is_reproducible_from_the_same_id_and_seed() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.ACE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.KING, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	for _i in range(15):
+		cards.append(_card(Card.Rank.TWO, Card.Suit.HEARTS))
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-repro-before")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-repro-before")).is_true()
+	assert_bool(controller.next_round("shoe-repro", 4242)).is_true()
+	assert_bool(controller.place_bet(100)).is_true()
+
+	assert_bool(controller.deal("round-repro-after")).is_true()
+
+	var snapshot := controller.snapshot()
+	var reference_shoe := DeckShoe.create_runtime("shoe-repro", 4242)
+	var reference_player_first := reference_shoe.draw_card()
+	var reference_dealer_up := reference_shoe.draw_card()
+	var reference_player_second := reference_shoe.draw_card()
+	assert_int(snapshot.player_cards[0].rank).is_equal(reference_player_first.rank)
+	assert_int(snapshot.player_cards[0].suit).is_equal(reference_player_first.suit)
+	assert_int(snapshot.dealer_visible_cards[0].rank).is_equal(reference_dealer_up.rank)
+	assert_int(snapshot.dealer_visible_cards[0].suit).is_equal(reference_dealer_up.suit)
+	assert_int(snapshot.player_cards[1].rank).is_equal(reference_player_second.rank)
+	assert_int(snapshot.player_cards[1].suit).is_equal(reference_player_second.suit)
+
+
+func test_next_round_requires_replacement_after_a_shoe_exhaustion_abort() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.EIGHT, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+	]
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-next-round-after-abort")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-next-round-after-abort")).is_false()
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+
+	assert_bool(controller.next_round()).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_NEXT_SHOE_REQUIRED)
+
+	assert_bool(controller.next_round("shoe-after-abort", 55)).is_true()
+
+	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-after-abort-replacement")).is_true()
+
+
+func test_next_round_is_rejected_while_presentation_is_blocking() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.ACE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.KING, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	for _i in range(20):
+		cards.append(_card(Card.Rank.TWO, Card.Suit.HEARTS))
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-next-round-blocked")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-next-round-blocked")).is_true()
+	assert_bool(controller.begin_presentation("token-next-round")).is_true()
+
+	assert_bool(controller.next_round()).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_BLOCKING)
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+
+	assert_bool(controller.complete_presentation("token-next-round")).is_true()
+	assert_bool(controller.next_round()).is_true()
+
+
 func _assert_deal_event(
 	event: RoundEvent,
 	sequence_no: int,
