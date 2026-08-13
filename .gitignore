@@ -18,3 +18,7 @@ reports/*
 *.png.import
 # Font source archives are not needed in the repo; the .otf files are.
 *.zip
+
+# The MCP addon injects these autoloads while the editor runs and removes them
+# on close. If a crash leaves them behind they must not be committed — they are
+# editor tooling, not part of the game.
