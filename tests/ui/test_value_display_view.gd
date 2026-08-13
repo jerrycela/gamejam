@@ -21,6 +21,16 @@ func test_value_and_state_are_rendered_by_label_nodes_not_a_texture() -> void:
 	assert_int(labels.size()).is_equal(2)
 
 
+func test_value_label_uses_the_bold_value_total_type_variation() -> void:
+	# The large total number gets the Bold CJK font per team-lead's
+	# instruction (button labels + this number, not the smaller state
+	# label) — see tests/ui/test_lsbj_theme_tokens.gd's font-wiring note.
+	var runner := scene_runner("res://ui/components/value_display.tscn")
+	var view := runner.scene() as ValueDisplayView
+
+	assert_str(String(view.get_value_label().theme_type_variation)).is_equal("ValueTotalLabel")
+
+
 func test_hard_state_uses_text_primary_and_shows_hard_label() -> void:
 	var runner := scene_runner("res://ui/components/value_display.tscn")
 	var view := runner.scene() as ValueDisplayView

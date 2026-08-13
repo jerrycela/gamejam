@@ -1,4 +1,7 @@
-[gd_resource type="Theme" load_steps=10 format=3]
+[gd_resource type="Theme" load_steps=12 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/SourceHanSansTC-Regular.otf" id="1"]
+[ext_resource type="FontFile" path="res://assets/fonts/SourceHanSansTC-Bold.otf" id="2"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_default"]
 bg_color = Color(0.960784, 0.725490, 0.258824, 1)
@@ -145,6 +148,7 @@ content_margin_right = 24.0
 content_margin_bottom = 24.0
 
 [resource]
+default_font = ExtResource("1")
 default_font_size = 28
 Label/colors/font_color = Color(1, 1, 1, 1)
 
@@ -154,6 +158,7 @@ PrimaryActionButton/colors/font_focus_color = Color(0.027451, 0.066667, 0.054902
 PrimaryActionButton/colors/font_hover_color = Color(0.027451, 0.066667, 0.054902, 1)
 PrimaryActionButton/colors/font_pressed_color = Color(0.027451, 0.066667, 0.054902, 1)
 PrimaryActionButton/colors/font_disabled_color = Color(1, 1, 1, 1)
+PrimaryActionButton/fonts/font = ExtResource("2")
 PrimaryActionButton/font_sizes/font_size = 30
 PrimaryActionButton/styles/normal = SubResource("StyleBoxFlat_primary_default")
 PrimaryActionButton/styles/hover = SubResource("StyleBoxFlat_primary_default")
@@ -167,6 +172,7 @@ DangerActionButton/colors/font_focus_color = Color(1, 1, 1, 1)
 DangerActionButton/colors/font_hover_color = Color(1, 1, 1, 1)
 DangerActionButton/colors/font_pressed_color = Color(1, 1, 1, 1)
 DangerActionButton/colors/font_disabled_color = Color(1, 1, 1, 1)
+DangerActionButton/fonts/font = ExtResource("2")
 DangerActionButton/font_sizes/font_size = 30
 DangerActionButton/styles/normal = SubResource("StyleBoxFlat_danger_default")
 DangerActionButton/styles/hover = SubResource("StyleBoxFlat_danger_default")
@@ -186,12 +192,16 @@ DealButton/colors/font_focus_color = Color(0.027451, 0.066667, 0.054902, 1)
 DealButton/colors/font_hover_color = Color(0.027451, 0.066667, 0.054902, 1)
 DealButton/colors/font_pressed_color = Color(0.027451, 0.066667, 0.054902, 1)
 DealButton/colors/font_disabled_color = Color(1, 1, 1, 1)
+DealButton/fonts/font = ExtResource("2")
 DealButton/font_sizes/font_size = 30
 DealButton/styles/normal = SubResource("StyleBoxFlat_primary_default")
 DealButton/styles/hover = SubResource("StyleBoxFlat_primary_default")
 DealButton/styles/pressed = SubResource("StyleBoxFlat_primary_pressed")
 DealButton/styles/disabled = SubResource("StyleBoxFlat_primary_disabled")
 DealButton/styles/focus = SubResource("StyleBoxFlat_primary_focus")
+
+ValueTotalLabel/base_type = &"Label"
+ValueTotalLabel/fonts/font = ExtResource("2")
 
 Tokens/colors/bg_panel = Color(0.043137, 0.113725, 0.094118, 1)
 Tokens/colors/action_primary = Color(0.960784, 0.725490, 0.258824, 1)

@@ -81,6 +81,35 @@ func test_default_font_size_is_enlarged_for_real_device_readability() -> void:
 	assert_int(theme.default_font_size).is_equal(28)
 
 
+## CJK font wiring (2026-08-13, user-provided asset): Traditional Chinese
+## display text (要牌/停牌/發牌/籌碼/etc.) renders as tofu boxes under
+## Godot's engine-bundled default font, which has no CJK glyphs — this is
+## the actual asset that closes that gap, not a code fix. Source Han Sans
+## TC (Adobe, OFL-1.1, assets/fonts/LICENSE.txt) — Regular is the Theme's
+## global default_font (covers every plain Label with no override:
+## ChipsDisplay/BetControl/ResultBanner/state label/fallback visual); Bold
+## goes on the button label type variations and the HandTotal number
+## specifically, per team-lead's instruction on which text is "needs
+## bold" (button labels, and the large total number — not the smaller
+## HARD/SOFT/BUST state label under it).
+func test_default_font_is_source_han_sans_tc_regular() -> void:
+	var theme: Theme = load(THEME_PATH)
+
+	assert_bool(theme.has_default_font()).is_true()
+	var font := theme.default_font
+	assert_object(font).is_not_null()
+	assert_str(font.resource_path).is_equal("res://assets/fonts/SourceHanSansTC-Regular.otf")
+
+
+func test_button_and_value_total_type_variations_use_source_han_sans_tc_bold() -> void:
+	var theme: Theme = load(THEME_PATH)
+
+	for type_name: String in ["PrimaryActionButton", "DangerActionButton", "DealButton", "ValueTotalLabel"]:
+		var font: Font = theme.get_font("font", type_name)
+		assert_object(font).is_not_null()
+		assert_str(font.resource_path).is_equal("res://assets/fonts/SourceHanSansTC-Bold.otf")
+
+
 func test_primary_action_button_type_variation_is_registered_on_button() -> void:
 	var theme: Theme = load(THEME_PATH)
 

@@ -16,3 +16,5 @@ reports/*
 
 # Godot re-imports assets on open; the generated .import files are per-machine
 *.png.import
+# Font source archives are not needed in the repo; the .otf files are.
+*.zip

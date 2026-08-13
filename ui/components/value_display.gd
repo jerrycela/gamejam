@@ -40,6 +40,11 @@ const STATE_LABELS := {
 
 
 func _ready() -> void:
+	# Bold CJK font for the large total number specifically (team-lead's
+	# instruction: button labels + this number get Bold, not the smaller
+	# state label) — ui/theme/lsbj_theme.tres's ValueTotalLabel type
+	# variation.
+	_value_label.theme_type_variation = &"ValueTotalLabel"
 	_value_label.add_theme_font_size_override(
 		"font_size", get_theme_constant("value_total_font_size", "Tokens")
 	)
