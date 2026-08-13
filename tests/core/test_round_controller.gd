@@ -157,7 +157,7 @@ func test_deal_resolves_push_when_both_player_and_dealer_have_natural() -> void:
 	var events := controller.events()
 	assert_int(events.size()).is_equal(7)
 	assert_str(events[5].event_id).is_equal(RoundEvent.DEALER_PEEK_COMPLETED)
-	assert_str(events[6].event_id).is_equal(RoundEvent.HOLE_CARD_REVEALED)
+	assert_str(events[6].event_id).is_equal(RoundEvent.DEALER_HOLE_CARD_REVEALED)
 	assert_object(events[6].card).is_same(cards[3])
 	assert_bool(events[6].face_up).is_true()
 
@@ -190,7 +190,7 @@ func test_deal_resolves_dealer_blackjack_after_peek_when_only_dealer_has_natural
 	var events := controller.events()
 	assert_int(events.size()).is_equal(7)
 	assert_str(events[5].event_id).is_equal(RoundEvent.DEALER_PEEK_COMPLETED)
-	assert_str(events[6].event_id).is_equal(RoundEvent.HOLE_CARD_REVEALED)
+	assert_str(events[6].event_id).is_equal(RoundEvent.DEALER_HOLE_CARD_REVEALED)
 
 	assert_bool(controller.deal("round-dealer-natural-again")).is_false()
 	assert_int(ledger.available_chips).is_equal(900)

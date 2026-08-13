@@ -221,7 +221,7 @@ func _resolve_naturals() -> void:
 		_emit_event(RoundEvent.DEALER_PEEK_COMPLETED, RoundEvent.HAND_DEALER)
 		if dealer_natural:
 			_emit_event(
-				RoundEvent.HOLE_CARD_REVEALED,
+				RoundEvent.DEALER_HOLE_CARD_REVEALED,
 				RoundEvent.HAND_DEALER,
 				_dealer_cards[1],
 				true,
