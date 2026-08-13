@@ -50,10 +50,16 @@ func test_l2root_children_match_recommended_scene_tree() -> void:
 
 
 func test_l1root_children_match_recommended_scene_tree() -> void:
+	# Matched by name+descendant, not by exact path: TableUI's own layout is
+	# anchors/containers-driven (docs/01_GAME_AND_LAYER_SPEC.md:29) and uses
+	# a VBoxContainer + expand-fill spacer internally so the top/bottom
+	# clusters reflow across viewport sizes, but every named unit from
+	# docs/05_FIGMA_TO_GODOT.md:29-51 still exists as its own real node
+	# somewhere under TableUI.
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
+	var table_ui := root.get_node("L1Root/TableUI") as Node
 
-	var table_ui_path := "L1Root/TableUI"
 	for child_name: String in [
 		"DealerHandView",
 		"PlayerHandView",
@@ -63,4 +69,4 @@ func test_l1root_children_match_recommended_scene_tree() -> void:
 		"ChipsDisplay",
 		"BetControl",
 	]:
-		assert_bool(root.has_node("%s/%s" % [table_ui_path, child_name])).is_true()
+		assert_object(table_ui.find_child(child_name, true, false)).is_not_null()

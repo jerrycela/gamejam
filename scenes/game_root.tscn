@@ -1,10 +1,12 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="1"]
 [ext_resource type="PackedScene" path="res://ui/components/card_view.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://ui/components/action_button.tscn" id="3"]
-[ext_resource type="Texture2D" path="res://assets/textures/L1_TABLE_FELT_V001.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/source/image/L3_ROOM_BG_V001.png" id="4"]
 [ext_resource type="Texture2D" path="res://assets/textures/L3_DEALER_IDLE_V001.png" id="5"]
+[ext_resource type="Script" path="res://scripts/presentation/round_controller_node.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/presentation/presentation_controller.gd" id="7"]
 
 [node name="GameRoot" type="Control"]
 layout_mode = 3
@@ -80,105 +82,118 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="TableUI" type="Control" parent="L1Root"]
+[node name="TableUI" type="MarginContainer" parent="L1Root"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+theme_override_constants/margin_left = 60
+theme_override_constants/margin_top = 60
+theme_override_constants/margin_right = 60
+theme_override_constants/margin_bottom = 60
 
-[node name="DealerHandView" type="HBoxContainer" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 160.0
-offset_right = 700.0
-offset_bottom = 360.0
+[node name="Layout" type="VBoxContainer" parent="L1Root/TableUI"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="DealerHandView" type="HBoxContainer" parent="L1Root/TableUI/Layout"]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_override_constants/separation = 16
 
-[node name="DealerCard1" parent="L1Root/TableUI/DealerHandView" instance=ExtResource("2")]
+[node name="DealerCard1" parent="L1Root/TableUI/Layout/DealerHandView" instance=ExtResource("2")]
 layout_mode = 2
 suit = 3
 rank = "A"
 
-[node name="DealerCard2" parent="L1Root/TableUI/DealerHandView" instance=ExtResource("2")]
+[node name="DealerCard2" parent="L1Root/TableUI/Layout/DealerHandView" instance=ExtResource("2")]
 layout_mode = 2
 suit = 1
 rank = "10"
 
-[node name="PlayerHandView" type="HBoxContainer" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 1200.0
-offset_right = 700.0
-offset_bottom = 1400.0
+[node name="CenterSpacer" type="Control" parent="L1Root/TableUI/Layout"]
+## Reserved for L3 (docs/01_GAME_AND_LAYER_SPEC.md:29 / team-lead-approved
+## zoning: dealer hand pinned to top edge, player hand + ActionBar pinned to
+## bottom edge, center left empty so L3's Dealer/background stays visible).
+## SIZE_EXPAND_FILL makes it consume all leftover vertical space at any
+## viewport height/aspect instead of a fixed pixel gap, so L1-5's three
+## viewport sizes reflow instead of the top/bottom clusters drifting toward
+## the middle or off-screen.
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ResultBanner" type="Label" parent="L1Root/TableUI/Layout/CenterSpacer"]
+## Transient result text (WIN/LOSE/PUSH/...) is the one L1 element allowed to
+## sit inside the L3-reserved zone: it is empty most of the time and only
+## shown briefly, unlike a persistent background/texture.
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+text = ""
+
+[node name="BottomCluster" type="VBoxContainer" parent="L1Root/TableUI/Layout"]
+layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="PlayerCard1" parent="L1Root/TableUI/PlayerHandView" instance=ExtResource("2")]
+[node name="HandTotal" type="Label" parent="L1Root/TableUI/Layout/BottomCluster"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "0"
+
+[node name="ChipsAndBet" type="HBoxContainer" parent="L1Root/TableUI/Layout/BottomCluster"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 24
+
+[node name="ChipsDisplay" type="Label" parent="L1Root/TableUI/Layout/BottomCluster/ChipsAndBet"]
+layout_mode = 2
+text = "CHIPS: 1000"
+
+[node name="BetControl" type="Label" parent="L1Root/TableUI/Layout/BottomCluster/ChipsAndBet"]
+layout_mode = 2
+text = "BET: 0"
+
+[node name="PlayerHandView" type="HBoxContainer" parent="L1Root/TableUI/Layout/BottomCluster"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 16
+
+[node name="PlayerCard1" parent="L1Root/TableUI/Layout/BottomCluster/PlayerHandView" instance=ExtResource("2")]
 layout_mode = 2
 suit = 0
 rank = "K"
 
-[node name="PlayerCard2" parent="L1Root/TableUI/PlayerHandView" instance=ExtResource("2")]
+[node name="PlayerCard2" parent="L1Root/TableUI/Layout/BottomCluster/PlayerHandView" instance=ExtResource("2")]
 layout_mode = 2
 suit = 2
 rank = "7"
 
-[node name="HandTotal" type="Label" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 1410.0
-offset_right = 400.0
-offset_bottom = 1470.0
-text = "0"
-
-[node name="ResultBanner" type="Label" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 700.0
-offset_right = 1020.0
-offset_bottom = 780.0
-horizontal_alignment = 1
-text = ""
-
-[node name="ActionBar" type="HBoxContainer" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 40.0
-offset_top = 1620.0
-offset_right = 1040.0
-offset_bottom = 1700.0
+[node name="ActionBar" type="HBoxContainer" parent="L1Root/TableUI/Layout/BottomCluster"]
+layout_mode = 2
+size_flags_horizontal = 4
 theme_override_constants/separation = 12
 
-[node name="HitButton" parent="L1Root/TableUI/ActionBar" instance=ExtResource("3")]
+[node name="HitButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
 layout_mode = 2
 action = 0
 
-[node name="StandButton" parent="L1Root/TableUI/ActionBar" instance=ExtResource("3")]
+[node name="StandButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
 layout_mode = 2
 action = 1
 
-[node name="DoubleButton" parent="L1Root/TableUI/ActionBar" instance=ExtResource("3")]
+[node name="DoubleButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
 layout_mode = 2
 action = 2
 
-[node name="SurrenderButton" parent="L1Root/TableUI/ActionBar" instance=ExtResource("3")]
+[node name="SurrenderButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
 layout_mode = 2
 action = 3
 
-[node name="ChipsDisplay" type="Label" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 60.0
-offset_top = 1740.0
-offset_right = 400.0
-offset_bottom = 1800.0
-text = "CHIPS: 1000"
-
-[node name="BetControl" type="Label" parent="L1Root/TableUI"]
-layout_mode = 0
-offset_left = 420.0
-offset_top = 1740.0
-offset_right = 760.0
-offset_bottom = 1800.0
-text = "BET: 0"
-
 [node name="RoundController" type="Node" parent="."]
+script = ExtResource("6")
 
 [node name="PresentationController" type="Node" parent="."]
+script = ExtResource("7")

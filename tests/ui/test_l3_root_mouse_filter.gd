@@ -25,7 +25,8 @@ func test_action_bar_button_keeps_default_mouse_filter_under_l3_overlay() -> voi
 	# reason a real click on ActionBar would fail to reach it.
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
-	var hit_button := root.get_node("L1Root/TableUI/ActionBar/HitButton") as Control
+	var table_ui := root.get_node("L1Root/TableUI") as Node
+	var hit_button := table_ui.find_child("HitButton", true, false) as Control
 
 	assert_int(hit_button.mouse_filter).is_not_equal(Control.MOUSE_FILTER_IGNORE)
 

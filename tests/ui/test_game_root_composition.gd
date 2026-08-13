@@ -30,15 +30,20 @@ func test_table_ui_is_composed_of_multiple_independent_nodes() -> void:
 	var table_ui := root.get_node("L1Root/TableUI") as Control
 
 	assert_bool(table_ui is TextureRect).is_false()
-	assert_int(table_ui.get_child_count()).is_greater(1)
+	# TableUI's direct child is a layout container (anchors/containers per
+	# docs/01_GAME_AND_LAYER_SPEC.md:29), so count the whole descendant tree
+	# rather than only direct children — still proves this is many real nodes,
+	# not a flattened image.
+	assert_int(table_ui.find_children("*", "", true, false).size()).is_greater(1)
 
 
 func test_hand_views_instantiate_the_card_face_component_not_a_texture() -> void:
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
+	var table_ui := root.get_node("L1Root/TableUI") as Node
 
-	var dealer_card := root.get_node("L1Root/TableUI/DealerHandView/DealerCard1")
-	var player_card := root.get_node("L1Root/TableUI/PlayerHandView/PlayerCard1")
+	var dealer_card := table_ui.find_child("DealerCard1", true, false)
+	var player_card := table_ui.find_child("PlayerCard1", true, false)
 
 	assert_object(dealer_card).is_instanceof(CardFaceView)
 	assert_object(player_card).is_instanceof(CardFaceView)
@@ -47,7 +52,8 @@ func test_hand_views_instantiate_the_card_face_component_not_a_texture() -> void
 func test_action_bar_instantiates_the_action_button_component_not_a_texture() -> void:
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
+	var table_ui := root.get_node("L1Root/TableUI") as Node
 
 	for button_name: String in ["HitButton", "StandButton", "DoubleButton", "SurrenderButton"]:
-		var button := root.get_node("L1Root/TableUI/ActionBar/%s" % button_name)
+		var button := table_ui.find_child(button_name, true, false)
 		assert_object(button).is_instanceof(ActionButtonView)
