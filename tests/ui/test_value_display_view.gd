@@ -29,7 +29,7 @@ func test_hard_state_uses_text_primary_and_shows_hard_label() -> void:
 	await runner.simulate_frames(1)
 
 	assert_str(view.get_value_label().text).is_equal("18")
-	assert_str(view.get_state_label().text).is_equal("HARD")
+	assert_str(view.get_state_label().text).is_equal("硬")
 	var expected := view.get_theme_color("text_primary", "Tokens")
 	assert_that(view.get_value_label().get_theme_color("font_color")).is_equal(expected)
 	assert_that(view.get_state_label().get_theme_color("font_color")).is_equal(expected)
@@ -42,7 +42,7 @@ func test_soft_state_uses_text_secondary_and_shows_soft_label() -> void:
 	view.value = "18"
 	await runner.simulate_frames(1)
 
-	assert_str(view.get_state_label().text).is_equal("SOFT")
+	assert_str(view.get_state_label().text).is_equal("軟")
 	var expected := view.get_theme_color("text_secondary", "Tokens")
 	assert_that(view.get_value_label().get_theme_color("font_color")).is_equal(expected)
 
@@ -55,24 +55,25 @@ func test_bust_state_uses_result_bust_and_shows_bust_label() -> void:
 	await runner.simulate_frames(1)
 
 	assert_str(view.get_value_label().text).is_equal("24")
-	assert_str(view.get_state_label().text).is_equal("BUST")
+	assert_str(view.get_state_label().text).is_equal("爆牌")
 	var expected := view.get_theme_color("result_bust", "Tokens")
 	assert_that(view.get_value_label().get_theme_color("font_color")).is_equal(expected)
 
 
 func test_font_sizes_come_from_theme_tokens_not_hardcoded_literals() -> void:
-	# Literal Figma/theme values (ui/theme/lsbj_theme.tres
-	# Tokens/constants/value_total_font_size=56,
-	# value_total_state_font_size=18) — NOT re-derived via
-	# view.get_theme_constant(), which would just compare the production
-	# code's own accessor call against itself (an identity, provably true
-	# even if _ready() hardcoded the font size and never called
-	# get_theme_constant() at all).
+	# Literal theme values (ui/theme/lsbj_theme.tres
+	# Tokens/constants/value_total_font_size=68,
+	# value_total_state_font_size=26 — enlarged from Figma's original 56/18
+	# for real-device readability, see tests/ui/test_lsbj_theme_tokens.gd's
+	# font-size deviation note) — NOT re-derived via view.get_theme_constant(),
+	# which would just compare the production code's own accessor call
+	# against itself (an identity, provably true even if _ready() hardcoded
+	# the font size and never called get_theme_constant() at all).
 	var runner := scene_runner("res://ui/components/value_display.tscn")
 	var view := runner.scene() as ValueDisplayView
 
-	assert_int(view.get_value_label().get_theme_font_size("font_size")).is_equal(56)
-	assert_int(view.get_state_label().get_theme_font_size("font_size")).is_equal(18)
+	assert_int(view.get_value_label().get_theme_font_size("font_size")).is_equal(68)
+	assert_int(view.get_state_label().get_theme_font_size("font_size")).is_equal(26)
 
 
 func test_set_from_hand_evaluation_reflects_the_evaluator_result_without_computing_it_itself() -> void:

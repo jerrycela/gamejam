@@ -9,7 +9,7 @@ extends GdUnitTestSuite
 func test_default_label_is_deal() -> void:
 	var button := (load("res://ui/components/deal_button.tscn") as PackedScene).instantiate() as DealButtonView
 
-	assert_str(button.text).is_equal("DEAL")
+	assert_str(button.text).is_equal("發牌")
 	assert_object(button).is_not_null()
 	button.free()
 
@@ -19,7 +19,7 @@ func test_next_round_label_switches_the_visible_text() -> void:
 
 	button.label = DealButtonView.DealLabel.NEXT_ROUND
 
-	assert_str(button.text).is_equal("NEXT ROUND")
+	assert_str(button.text).is_equal("下一局")
 	button.free()
 
 

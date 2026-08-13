@@ -24,8 +24,8 @@ enum DealLabel {
 }
 
 const LABEL_TEXT := {
-	DealLabel.DEAL: "DEAL",
-	DealLabel.NEXT_ROUND: "NEXT ROUND",
+	DealLabel.DEAL: "發牌",
+	DealLabel.NEXT_ROUND: "下一局",
 }
 
 @export var label: DealLabel = DealLabel.DEAL:
@@ -44,4 +44,4 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
-	text = LABEL_TEXT.get(label, "DEAL")
+	text = LABEL_TEXT.get(label, "發牌")

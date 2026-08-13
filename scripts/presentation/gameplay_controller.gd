@@ -52,14 +52,14 @@ const _SUIT_MAP := {
 ## "log has the detail, screen never does" boundary PresentationController's
 ## fallback visual already established.
 const _OUTCOME_LABELS := {
-	BlackjackOutcome.Type.PLAYER_BLACKJACK: "BLACKJACK! YOU WIN",
-	BlackjackOutcome.Type.DEALER_BLACKJACK: "DEALER BLACKJACK",
-	BlackjackOutcome.Type.PLAYER_WIN: "YOU WIN",
-	BlackjackOutcome.Type.DEALER_WIN: "DEALER WINS",
-	BlackjackOutcome.Type.PLAYER_BUST: "BUST — YOU LOSE",
-	BlackjackOutcome.Type.DEALER_BUST: "DEALER BUSTS — YOU WIN",
-	BlackjackOutcome.Type.PUSH: "PUSH",
-	BlackjackOutcome.Type.PLAYER_SURRENDER: "SURRENDERED",
+	BlackjackOutcome.Type.PLAYER_BLACKJACK: "黑傑克！你贏了",
+	BlackjackOutcome.Type.DEALER_BLACKJACK: "莊家黑傑克",
+	BlackjackOutcome.Type.PLAYER_WIN: "你贏了",
+	BlackjackOutcome.Type.DEALER_WIN: "莊家贏了",
+	BlackjackOutcome.Type.PLAYER_BUST: "爆牌，你輸了",
+	BlackjackOutcome.Type.DEALER_BUST: "莊家爆牌，你贏了",
+	BlackjackOutcome.Type.PUSH: "平手",
+	BlackjackOutcome.Type.PLAYER_SURRENDER: "已投降",
 }
 
 var _controller: RoundController = null
@@ -262,11 +262,11 @@ func _render_hand_total() -> void:
 func _render_chips_and_bet() -> void:
 	if _chips_label == null or _bet_label == null or _ledger == null:
 		return
-	_chips_label.text = "CHIPS: %d" % _ledger.available_chips
+	_chips_label.text = "籌碼：%d" % _ledger.available_chips
 	var displayed_bet: int = (
 		_ledger.committed_bet if _ledger.committed_bet > 0 else _ledger.selected_bet
 	)
-	_bet_label.text = "BET: %d" % displayed_bet
+	_bet_label.text = "下注：%d" % displayed_bet
 
 
 func _render_result_banner() -> void:

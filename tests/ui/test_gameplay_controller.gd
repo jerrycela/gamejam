@@ -140,11 +140,11 @@ func test_completing_deal_presentation_renders_real_cards_and_hides_the_dealers_
 
 	# HandTotal reflects the player's real evaluation (17, hard).
 	assert_str(harness.hand_total.get_value_label().text).is_equal("17")
-	assert_str(harness.hand_total.get_state_label().text).is_equal("HARD")
+	assert_str(harness.hand_total.get_state_label().text).is_equal("硬")
 
 	# Chips/bet labels reflect the real ledger, not static scaffold text.
-	assert_str(harness.chips_label.text).is_equal("CHIPS: %d" % (BetLedger.STARTING_CHIPS - BetLedger.MINIMUM_BET))
-	assert_str(harness.bet_label.text).is_equal("BET: %d" % BetLedger.MINIMUM_BET)
+	assert_str(harness.chips_label.text).is_equal("籌碼：%d" % (BetLedger.STARTING_CHIPS - BetLedger.MINIMUM_BET))
+	assert_str(harness.bet_label.text).is_equal("下注：%d" % BetLedger.MINIMUM_BET)
 
 	# ActionBar already reflects PLAYER_TURN's legal actions (PresentationController's
 	# own completion path, not GameplayController re-implementing it).
@@ -182,7 +182,7 @@ func test_surrender_button_press_settles_the_round_immediately() -> void:
 
 	assert_int(harness.controller.current_state).is_equal(RoundController.State.ROUND_END)
 	assert_int(harness.controller.outcome()).is_equal(BlackjackOutcome.Type.PLAYER_SURRENDER)
-	assert_str(harness.result_banner.text).is_equal("SURRENDERED")
+	assert_str(harness.result_banner.text).is_equal("已投降")
 	assert_int(harness.action_bar.deal_button().label).is_equal(DealButtonView.DealLabel.NEXT_ROUND)
 
 

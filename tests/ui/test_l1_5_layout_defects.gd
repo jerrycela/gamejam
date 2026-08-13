@@ -51,12 +51,13 @@ func test_value_display_view_reports_a_minimum_size_that_fits_both_labels() -> v
 
 	var min_size := view.get_combined_minimum_size()
 
-	# Font sizes are Theme Tokens (value_total_font_size=56,
-	# value_total_state_font_size=18, ui/theme/lsbj_theme.tres) — two
-	# stacked single-line Labels need at least that much combined height
-	# (plus the VBoxContainer's own separation), not the (0, 0) a bare
-	# Control silently reports by default.
-	assert_float(min_size.y).is_greater_equal(56.0 + 18.0)
+	# Font sizes are Theme Tokens (value_total_font_size=68,
+	# value_total_state_font_size=26 — enlarged from Figma's original 56/18
+	# for real-device readability, see tests/ui/test_lsbj_theme_tokens.gd's
+	# font-size deviation note) — two stacked single-line Labels need at
+	# least that much combined height (plus the VBoxContainer's own
+	# separation), not the (0, 0) a bare Control silently reports by default.
+	assert_float(min_size.y).is_greater_equal(68.0 + 26.0)
 	assert_float(min_size.x).is_greater(0.0)
 
 

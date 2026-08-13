@@ -17,10 +17,10 @@ enum Action {
 }
 
 const ACTION_LABELS := {
-	Action.HIT: "HIT",
-	Action.STAND: "STAND",
-	Action.DOUBLE: "DOUBLE",
-	Action.SURRENDER: "SURRENDER",
+	Action.HIT: "要牌",
+	Action.STAND: "停牌",
+	Action.DOUBLE: "加倍",
+	Action.SURRENDER: "投降",
 }
 
 const DANGER_ACTIONS := [Action.SURRENDER]

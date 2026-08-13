@@ -35,7 +35,7 @@ const FALLBACK_VISUAL_DWELL_MS: int = 400
 
 ## Deliberately generic/non-technical — docs/03:144 sends the asset ID to
 ## the log (see report_asset_load_failure), never to the screen.
-const FALLBACK_VISUAL_TEXT: String = "One moment…"
+const FALLBACK_VISUAL_TEXT: String = "請稍候…"
 
 signal presentation_started(kind: StringName, token: String)
 signal presentation_completed(kind: StringName, token: String, via_fallback: bool)

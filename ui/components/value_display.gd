@@ -19,9 +19,9 @@ enum State {
 }
 
 const STATE_LABELS := {
-	State.HARD: "HARD",
-	State.SOFT: "SOFT",
-	State.BUST: "BUST",
+	State.HARD: "硬",
+	State.SOFT: "軟",
+	State.BUST: "爆牌",
 }
 
 @export var state: State = State.HARD:

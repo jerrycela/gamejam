@@ -27,7 +27,7 @@ func test_action_button_view_renders_its_label_via_the_button_text_property() ->
 	# would leave `text` unset while still "looking" like it works visually.
 	assert_object(button).is_instanceof(Button)
 	button.action = ActionButtonView.Action.STAND
-	assert_str(button.text).is_equal("STAND")
+	assert_str(button.text).is_equal("停牌")
 	assert_bool(button.text.is_empty()).is_false()
 	_assert_no_texture_carries_text(button)
 
@@ -37,10 +37,10 @@ func test_deal_button_view_renders_both_labels_via_the_button_text_property() ->
 	var button := runner.scene() as DealButtonView
 
 	assert_object(button).is_instanceof(Button)
-	assert_str(button.text).is_equal("DEAL")
+	assert_str(button.text).is_equal("發牌")
 
 	button.label = DealButtonView.DealLabel.NEXT_ROUND
-	assert_str(button.text).is_equal("NEXT ROUND")
+	assert_str(button.text).is_equal("下一局")
 	_assert_no_texture_carries_text(button)
 
 
@@ -58,5 +58,5 @@ func test_value_display_view_renders_value_and_state_via_label_nodes() -> void:
 	assert_object(value_label).is_instanceof(Label)
 	assert_object(state_label).is_instanceof(Label)
 	assert_str(value_label.text).is_equal("19")
-	assert_str(state_label.text).is_equal("SOFT")
+	assert_str(state_label.text).is_equal("軟")
 	_assert_no_texture_carries_text(display)
