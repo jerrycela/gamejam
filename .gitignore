@@ -14,8 +14,9 @@ reports/*
 # Spectra app data
 .spectra/
 
-# Godot re-imports assets on open; the generated .import files are per-machine
-*.png.import
+# .import files hold per-asset import settings — loop points on audio, filter
+# and mipmap flags on textures. Those are things a person tunes in the editor,
+# so they belong in version control. Only .godot/ is generated and ignored.
 # Font source archives are not needed in the repo; the .otf files are.
 *.zip
 

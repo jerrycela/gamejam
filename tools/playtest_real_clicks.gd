@@ -44,8 +44,10 @@ func _init() -> void:
 
 	print("BEFORE: state=%d buttons=%d legal=%s" % [ctrl.current_state, bar.button_count(), str(ctrl.legal_actions())])
 
+	var deal_click_start_ms := Time.get_ticks_msec()
 	_click_control(bar.deal_button())
 	await _wait_for_presentation_to_settle(presentation)
+	print("DEAL barrier held for %d ms (real click to real unblock)" % (Time.get_ticks_msec() - deal_click_start_ms))
 	print(
 		"AFTER DEAL click: state=%d player_total=%d dealer_child_count=%d legal=%s" % [
 			ctrl.current_state,
@@ -60,8 +62,10 @@ func _init() -> void:
 		for button in bar.buttons():
 			if button.action == ActionButtonView.Action.STAND:
 				stand_button = button
+		var stand_click_start_ms := Time.get_ticks_msec()
 		_click_control(stand_button)
 		await _wait_for_presentation_to_settle(presentation)
+		print("HOLE-REVEAL barrier held for %d ms (real click to real unblock)" % (Time.get_ticks_msec() - stand_click_start_ms))
 		print("AFTER STAND click: state=%d" % ctrl.current_state)
 
 	# Any further dealer hits are direct (non-presented) calls that
