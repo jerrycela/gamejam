@@ -45,7 +45,9 @@ func _action_id_for(action: int) -> StringName:
 ## Drives ActionBar to match RoundController.legal_actions() right now (the
 ## role a real L1 driver would play after any non-blocking action) and
 ## asserts the result is exactly correct: right buttons, right order, all
-## enabled.
+## enabled. Also covers BTN_DEAL (docs/12 node 9:17): DEAL/NEXT_ROUND now
+## render one DealButtonView with the matching label; PLACE_BET still has no
+## button (Bet Controls is a separate TableUI node, docs/01:35-54).
 func _assert_action_bar_matches_legal_actions(
 	action_bar: ActionBarView, controller: RoundController
 ) -> void:
@@ -60,6 +62,23 @@ func _assert_action_bar_matches_legal_actions(
 	assert_array(action_bar.button_actions()).contains_exactly(expected)
 	for button in action_bar.buttons():
 		assert_bool(button.disabled).is_false()
+
+	var expected_deal_label: int = -1
+	if legal.has(RoundController.ACTION_DEAL):
+		expected_deal_label = DealButtonView.DealLabel.DEAL
+	elif legal.has(RoundController.ACTION_NEXT_ROUND):
+		expected_deal_label = DealButtonView.DealLabel.NEXT_ROUND
+
+	var deal_button := action_bar.deal_button()
+	if expected_deal_label == -1:
+		assert_object(deal_button).is_null()
+	else:
+		assert_object(deal_button).is_not_null()
+		assert_int(deal_button.label).is_equal(expected_deal_label)
+		assert_bool(deal_button.disabled).is_false()
+
+	var expected_total_count := expected.size() + (0 if expected_deal_label == -1 else 1)
+	assert_int(action_bar.button_count()).is_equal(expected_total_count)
 
 
 func test_full_round_keeps_action_bar_consistent_with_legal_actions_at_every_transition() -> void:
@@ -84,25 +103,28 @@ func test_full_round_keeps_action_bar_consistent_with_legal_actions_at_every_tra
 	round_controller_node.setup(controller)
 	presentation_controller.setup(controller, action_bar)
 
-	# 1) BETTING (fresh scene default): 0 registered-scope buttons (PLACE_BET/
-	#    DEAL have no button in this component — see report).
+	# 1) BETTING (fresh scene default): PLACE_BET still has no button (Bet
+	#    Controls is a separate TableUI node), but DEAL now renders one
+	#    DealButtonView (BTN_DEAL, docs/12 node 9:17) -> 1 button.
 	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
 	_assert_action_bar_matches_legal_actions(action_bar, controller)
-	assert_int(action_bar.button_count()).is_equal(0)
+	assert_int(action_bar.button_count()).is_equal(1)
 
 	assert_bool(controller.place_bet(100)).is_true()
 
 	# 2) Still BETTING after PLACE_BET.
 	_assert_action_bar_matches_legal_actions(action_bar, controller)
-	assert_int(action_bar.button_count()).is_equal(0)
+	assert_int(action_bar.button_count()).is_equal(1)
 
 	# 3) DEAL is a registered blocking event: PresentationController commits
-	#    the deal then opens the presentation; the panel must stay untouched
-	#    (still 0 buttons, nothing to disable) while blocking.
+	#    the deal then opens the presentation; the panel's composition must
+	#    stay untouched while blocking (docs/03:126) — the DEAL button
+	#    instantiated at checkpoint 2 is still there, only disabled.
 	var deal_started := presentation_controller.begin_deal_presentation("round-l1-6")
 	assert_bool(deal_started).is_true()
 	assert_array(controller.legal_actions()).is_empty()
-	assert_int(action_bar.button_count()).is_equal(0)
+	assert_int(action_bar.button_count()).is_equal(1)
+	assert_bool(action_bar.deal_button().disabled).is_true()
 
 	# 4) Deal presentation completes -> PLAYER_TURN, first decision still
 	#    open: HIT/STAND/DOUBLE/SURRENDER all legal.
@@ -146,13 +168,13 @@ func test_full_round_keeps_action_bar_consistent_with_legal_actions_at_every_tra
 	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
 	assert_int(controller.outcome()).is_equal(BlackjackOutcome.Type.DEALER_BUST)
 	_assert_action_bar_matches_legal_actions(action_bar, controller)
-	# NEXT_ROUND has no button in this component either (see report) — 0 is
-	# the correct, verified state here, not an oversight.
-	assert_int(action_bar.button_count()).is_equal(0)
+	# NEXT_ROUND now renders the same DealButtonView with its "NEXT ROUND"
+	# label (BTN_DEAL 1.1.0's Label text property) -> 1 button.
+	assert_int(action_bar.button_count()).is_equal(1)
 
 	# 9) NEXT_ROUND: shoe is fully exhausted (all 6 injected cards drawn),
 	#    so an explicit replacement shoe is required -> back to BETTING.
 	assert_bool(controller.next_round("shoe-l1-6-round-2", 99)).is_true()
 	assert_int(controller.current_state).is_equal(RoundController.State.BETTING)
 	_assert_action_bar_matches_legal_actions(action_bar, controller)
-	assert_int(action_bar.button_count()).is_equal(0)
+	assert_int(action_bar.button_count()).is_equal(1)

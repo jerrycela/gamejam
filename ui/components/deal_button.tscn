@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/components/deal_button.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="2"]
+
+[node name="DealButtonView" type="Button"]
+theme = ExtResource("2")
+theme_type_variation = &"DealButton"
+text = "DEAL"
+script = ExtResource("1")
+label = 0
