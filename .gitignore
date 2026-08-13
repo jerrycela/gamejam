@@ -1,6 +1,12 @@
 .DS_Store
 .godot/
-reports/
+# Generated gdUnit4 run output. Excluded per-entry rather than as a whole
+# directory so the reference deck below can be re-included; git cannot
+# un-exclude a path whose parent directory is itself excluded.
+reports/*
+# The reference deck is the project's only original visual source material,
+# not generated output. Keep it under version control.
+!reports/reference_deck/
 *.log
 *.tmp
 
