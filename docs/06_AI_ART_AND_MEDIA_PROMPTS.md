@@ -1,8 +1,12 @@
 # 06 - AI Art and Media Prompt Pack
 
-## 1. Anti-Infographic Rule
+> **修訂紀錄（2026-08-13）**：Dealer／Background 素材結構拆分、§1/§3 定位調整、實測紀錄補充。提案見 `docs/plans/2026-08-13-doc06-asset-structure-revision.md`，經授權由 team-lead 核准套用（使用者已於 2026-08-13 明示授權「驗收過後即可通過」，本次核准為 team-lead 依授權執行，非使用者本人逐行審閱）。
 
-所有美術生成 Session 的第一句都要明確寫：
+## 1. Anti-Infographic Rule — 產出後檢核清單
+
+**定位調整（2026-08-13）**：以下宣告**不再要求逐字貼在每個 prompt 開頭**。實測發現把整段否定句照抄送進影像模型（尤其 Nano Banana / Gemini 影像 API）會顯著提高失敗率，曾連續多次回傳空結果（`responseParts is not iterable`）；改成簡短正面描述後才恢復穩定產出。
+
+正確用法：**生成完成後**，逐條核對產出是否符合以下條件，不合格則重新生成或調整 prompt——這是驗收清單，不是必貼文字：
 
 ```text
 This is a production game asset request.
@@ -10,7 +14,7 @@ Do not create an infographic, diagram, flowchart, document page, UI mockup, pres
 Generate only the requested game asset.
 ```
 
-這用來避免再次產生「一整頁密密麻麻的流程文字」。
+這用來避免再次產生「一整頁密密麻麻的流程文字」。各 prompt 區塊本身應以正面描述為主，只在必要時保留精簡的否定句（見 §3 詞彙陷阱）。
 
 ---
 
@@ -59,6 +63,8 @@ hard separation between subject and background
 
 ### Do not generate
 
+同樣改為**生成後檢核清單**（見 §1），不建議整段照抄進 prompt：
+
 - 完整 UI Screen。
 - HIT／STAND 等文字。
 - 假的 Chips 數字。
@@ -67,6 +73,13 @@ hard separation between subject and background
 - logo。
 - 多格 storyboard。
 - before/after sheet。
+
+### 詞彙陷阱（Vocabulary Traps）
+
+實測發現特定詞彙會誘發不要的構圖，即使規則清單已明文排除。此清單隨實際生成過程持續累積，非一次寫完：
+
+- **`"blackjack table"`**：材質類 prompt（如 §8 Table Surface Asset）若直接提到這個詞，模型會自動腦補整套牌桌版面，包含下注圈、`INSURANCE` 保險區與亂碼標語——而本專案規則明文不做 Insurance。改用材料詞彙（例如 `"wool baize"`、`"billiard cloth"`）可完全避開遊戲脈絡，穩定拿到純材質輸出。
+- **長串否定句整段照搬**：把 §1／§3 的完整否定清單直接貼進 prompt 開頭，會提高 Nano Banana（Gemini 影像 API）回傳空結果的機率。改寫成簡短正面描述、只保留 1-2 條關鍵否定約束即可。
 
 ---
 
@@ -102,29 +115,61 @@ Output one image only.
 
 在此 Prompt 後附加你批准的角色、服裝、風格、年齡與內容邊界。
 
+**身分一致性（2026-08-13 補充）**：目前生成後端（`hermes-script` 的 `image_generate`）支援 image-to-image，可用 `image_url` 提供角色參考圖，不必只靠文字描述鎖身分。後續任何產出荷官素材（§5b、§6 等）時，應優先把 `CHAR_DEALER_CANON_V001` 作為 image reference 一併提供，而不是僅靠文字重複描述——純文字描述已知有輕微飄移風險。
+
 ---
 
-## 5. L3 Full Background / Dealer Idle Reference
+## 5. L3 Background / Dealer Idle Reference
+
+**結構調整（2026-08-13）**：原本的單一融合 prompt（把荷官烙進背景整圖）已拆成兩個獨立素材，對應 `docs/05_FIGMA_TO_GODOT.md:29-33` scene tree 中 `L3Root` 底下既有的 `BackgroundView` 與 `DealerIdleView` 兩個獨立節點。拆分方案已實際驗證可行：去背荷官合成到空房間背景上，光線、色溫、比例、桌緣位置全部對得上。母帶存於 `assets/source/image/`，runtime 貼圖存於 `assets/textures/`。
+
+### 5a. L3 Room Background（餵給 `BackgroundView`）
 
 ```text
 This is a production game asset request.
-Generate only one Layer-3 in-game background plate for a portrait Blackjack game.
+Generate only one Layer-3 room background plate for a portrait Blackjack game.
 
 Purpose:
-Persistent dealer/background presentation underneath independent Godot UI.
+Persistent background presentation underneath the dealer sprite and independent Godot UI.
 
 Requirements:
 - portrait 9:16
-- use the approved canonical dealer reference
-- same face, hair, wardrobe, table, lighting, and camera
-- dealer placed in the upper-middle visual zone
+- room, walls, wall sconces, drapery, and casino card table
+- no character, no person, no dealer, no hands
+- warm key light from upper-left, 3200K tungsten-leaning color temperature, soft rim light from table-level chip lights
 - clear foreground and lower safe area for cards, action buttons, chips, and bet UI
-- visually calm enough to loop as an idle image-to-video source
+- visually calm enough to loop as a static background
 - no playing-card UI, no buttons, no readable text, no chip numbers
 - no infographic, diagram, multi-panel sheet, logo, or watermark
 
-Output one clean background plate.
+Output one clean background plate only, opaque, no alpha channel required.
 ```
+
+Asset ID：`L3_ROOM_BG_V001`（`.png`，1080×1920，不透明）。
+
+### 5b. L3 Dealer Idle Reference（餵給 `DealerIdleView`）
+
+```text
+This is a production game asset request.
+Generate only one Layer-3 dealer idle reference for a portrait Blackjack game.
+
+Use the approved canonical dealer reference (provide CHAR_DEALER_CANON_V001 as an image reference when the generator supports image-to-image; do not rely on text description alone).
+Preserve identity: same face, hair, wardrobe, proportions, and camera angle as the canonical reference.
+
+Requirements:
+- transparent background, PNG, clean alpha edges
+- dealer only, waist-up framing, no table, no room elements
+- warm key light from upper-left, 3200K tungsten-leaning color temperature, soft rim light from table-level chip lights (must match L3_ROOM_BG_V001 lighting)
+- composed for the upper-middle visual zone, matching L3_ROOM_BG_V001 composition
+- no playing-card UI, no buttons, no readable text, no chip numbers
+- no infographic, diagram, multi-panel sheet, logo, or watermark
+
+Output one asset only.
+```
+
+Asset ID：`L3_DEALER_IDLE_V001`（`.png`，透明背景）。
+
+待機的呼吸／眨眼／輕微姿態調整，改由 Godot `AnimationPlayer` 或 shader 在 runtime 做，不再依賴 image-to-video（理由與實測依據見 §11／§13）。
 
 ---
 
@@ -139,7 +184,7 @@ Generate only one isolated dealer reaction asset.
 Reaction:
 <REACTION>
 
-Use the approved canonical dealer reference.
+Use the approved canonical dealer reference (provide CHAR_DEALER_CANON_V001 as an image reference when the generator supports image-to-image; do not rely on text description alone).
 Preserve identity, face, hair, wardrobe, proportions, camera angle, and lighting.
 
 Output requirements:
@@ -151,6 +196,7 @@ Output requirements:
 - no table unless the reaction specifically requires hand contact with it
 - no UI, text, cards, labels, logo, border, infographic, or contact sheet
 - expressive but not exaggerated beyond the approved art direction
+- match the camera angle, crop, scale, and lighting direction/color temperature of L3_DEALER_IDLE_V001 (§5b)
 
 Output one asset only.
 ```
@@ -165,6 +211,8 @@ DEALER_REACT_PLAYER_BUST
 DEALER_REACT_PUSH
 DEALER_REACT_SURRENDER
 ```
+
+6 張反應圖已產出並進版控（`assets/source/image/L2_DEALER_REACT_*_greenscreen_source.png`，runtime 版本在 `assets/textures/L2_DEALER_REACT_*_V001.png`），與 `L3_DEALER_IDLE_V001` 同機位。
 
 ---
 
@@ -237,7 +285,19 @@ Requirements:
 
 ---
 
-## 11. Image-to-Video Idle Prompt
+## 11. Image-to-Video Idle Prompt — 現況：暫不採用，改用引擎內動畫
+
+**實測紀錄（2026-08-13）**：本節原本規劃用 image-to-video 產生待機循環，但已用兩層獨立理由排除，兩者不可混為一談：
+
+1. **能力面（硬限制，當下即擋住）**：實地詢問本專案目前唯一可用的生成後端 `hermes-script`（Slack bot），其回覆明確：
+   - **動態影片：不支援。** 工具集中沒有任何影片生成後端（無 MiniMax、Runway、Kling、Sora 等），`image_generate` 僅限靜態圖片。
+   - **透明背景：不適用**（因為根本不能產影片）。
+   - **參考圖片輸入：圖片生成可以，影片不行。** `image_generate` 支援 image-to-image（可用 `image_url` 提供角色參考／編輯，見 §4、§6 補充）。
+   - `hermes-script` 本身也建議走引擎內動畫，理由是「AI 影片生成在角色一致性與無縫循環這兩點上目前還很不穩」。
+   - 這是工具鏈當下的限制，未來生成後端更新（例如新增影片模型）可能解除。
+2. **架構面（長期理由，即使能力解除仍成立）**：見 §13——Godot 4.x 核心目前原生僅支援 Ogg Theora，Theora 的 alpha channel 支援不佳；「去背荷官＋動態影片」這個組合在引擎端本來就是脆弱路徑。
+
+兩個理由都指向同一個結論（待機動態改用 Godot `AnimationPlayer` 或 shader 做輕微縮放位移／呼吸／眨眼），但性質不同：#1 是當下擋住、可能隨工具更新解除；#2 是架構限制、不會因為工具更新而改變。以下 prompt 保留供未來生成後端支援影片時參考，**目前不作為必要產出**：
 
 ```text
 Animate the approved Layer-3 dealer reference into a seamless subtle idle loop.
@@ -278,7 +338,7 @@ AI video / editor output
 → Godot VideoStreamPlayer
 ```
 
-Godot 4.x 核心目前原生支援 Ogg Theora；MP4／H.264 若要直接播放需額外 GDExtension，第一個 Vertical Slice 不應先增加這項依賴。
+Godot 4.x 核心目前原生支援 Ogg Theora；MP4／H.264 若要直接播放需額外 GDExtension，第一個 Vertical Slice 不應先增加這項依賴。Theora 對 alpha channel 支援不佳，這是「去背荷官＋影片待機循環」目前不採用的架構面理由，與 §11 記錄的生成後端能力限制是兩件獨立的事（見 §11 實測紀錄）。
 
 Prototype 建議：
 
@@ -298,12 +358,20 @@ Codex 必須保存 MP4 source master，不可用轉檔結果覆蓋它。
 
 ```text
 CHAR_DEALER_CANON_V001.png
-L3_DEALER_IDLE_STAGE00_V001.mp4
-L2_DEALER_PLAYER_WIN_V001.png
-L2_DEALER_PLAYER_WIN_V001.mp4
+L3_ROOM_BG_V001.png
+L3_DEALER_IDLE_V001.png
+L2_DEALER_REACT_PLAYER_WIN_V001.png
 L1_CARD_BACK_V001.png
 L1_TABLE_FELT_V001.png
 ```
+
+**2026-08-13 修訂**：
+
+- 新增 `L3_ROOM_BG_V001.png`（§5a）、`L3_DEALER_IDLE_V001.png`（§5b），取代原本的融合背景板。
+- 移除 `L3_DEALER_IDLE_STAGE00_V001.mp4` 這個預設命名——待機動態改用引擎內動畫，image-to-video 母帶目前不是必要產出（見 §11 實測紀錄）；若未來生成後端支援影片且團隊決定仍要一份影片版待機，命名為 `L3_DEALER_IDLE_LOOP_V001.mp4`，非本表預設項目。
+- `L2_..._V001` 系列統一補上 `REACT` 語意前綴，與 §6 既有 Reaction IDs（`DEALER_REACT_PLAYER_WIN` 等）命名邏輯對齊；`.mp4` 版本是否保留取決於 §12 是否/何時連動修訂（本次修訂未涉及）。
+
+**現況（已產出，非規劃中）**：`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`、6 張 `L2_DEALER_REACT_*`、`L1_CARD_BACK_V001`、`L1_TABLE_FELT_V001`、`CHAR_DEALER_CANON_V001` 皆已生成並進版控。母帶在 `assets/source/image/`，runtime 貼圖在 `assets/textures/`。
 
 每個素材記錄：
 

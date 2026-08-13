@@ -1,8 +1,10 @@
 # 修訂提案：docs/06 素材結構拆分（Dealer / Background 分離）
 
-Status: **PROPOSAL — 待人工核准，本文件不自動生效**
+Status: **APPROVED（2026-08-13）**
 
-本文件只提案，不修改 `docs/06_AI_ART_AND_MEDIA_PROMPTS.md` 本身。所有「修訂內容」章節皆為建議文字，須經人工批准後才可套用到 `docs/06`。
+核准來源：使用者於 2026-08-13 明示授權「驗收過後即可通過」；本提案由 team-lead 依該授權於 2026-08-13 核准套用，非使用者本人逐行審閱。已套用至 `docs/06_AI_ART_AND_MEDIA_PROMPTS.md`（§1、§3、§4、§5、§6、§11、§13、§14），並補充兩項新事實：(1) 生成後端 `hermes-script` 實測不支援影片生成，(2) `image_generate` 支援 image-to-image 角色參考。
+
+本文件原為提案，以下「修訂內容」章節保留作為變更歷史紀錄；實際套用結果以 `docs/06_AI_ART_AND_MEDIA_PROMPTS.md` 現況為準，兩者若有出入以 `docs/06` 為準。
 
 ---
 
@@ -173,3 +175,13 @@ L1_TABLE_FELT_V001.png
 | 需人工拍板 | 待機影片存廢、§12 是否連動、`specs/003` 行號修正、詞彙陷阱清單維護方式 |
 
 本提案不修改任何既有檔案，需人工核准後才可套用到 `docs/06_AI_ART_AND_MEDIA_PROMPTS.md`（以及視第 7 節裁決結果，可能連動 `specs/003_LAYERED_PRESENTATION_PIPELINE.md` 的行號註記）。
+
+---
+
+## 9. 套用結果與現況落差（2026-08-13 套用時記錄）
+
+- 第 7 節爭議點 #1（待機影片存廢）已由 team-lead 依現況資訊裁決：目前生成後端 `hermes-script` 實地測試回覆「不支援影片生成」，屬硬限制，不是團隊取捨——`L3_DEALER_IDLE_STAGE00_V001.mp4` 已從 §14 命名表移除，改記錄為「未來若後端支援影片，命名為 `L3_DEALER_IDLE_LOOP_V001.mp4`，非預設項目」。
+- 第 7 節爭議點 #2（§12 是否連動）：本次套用**未修改** §12 Reaction Video Prompt，維持提案原範圍；§13 已加一句 cross-reference 提醒兩節理由不同層次，但未展開修訂 §12 本身。
+- 第 7 節爭議點 #3（`specs/003` 過期行號引用）：本次套用**未修改** `specs/003_LAYERED_PRESENTATION_PIPELINE.md`，範圍限定在 `docs/06`。
+- 第 7 節爭議點 #4（詞彙陷阱清單維護方式）：已在 `docs/06` §3 明確標註「此清單隨實際生成過程持續累積，非一次寫完」。
+- **新發現的落差**：`assets/source/image/L3_ROOM_BG_V001.png` 母帶已存在，但 `assets/textures/` 目前**沒有**對應的 runtime 貼圖（`L3_DEALER_IDLE_V001.png` 有兩邊都存在，`L3_ROOM_BG_V001.png` 只有母帶、缺 runtime import）。`assets/source/image/` 另外還有一個 `L3_DEALER_PLATE_BAKED_V001.png`，疑似是拆分前的融合圖殘留。這兩點屬於「素材資產現況」而非「文件內容」問題，本次任務範圍是修訂 `docs/06`，未動 `assets/` 目錄下任何檔案，僅在此記錄供後續處理判斷。
