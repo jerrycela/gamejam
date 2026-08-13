@@ -1,6 +1,6 @@
 # 003 - Layered Presentation Pipeline
 
-Status: DRAFT
+Status: APPROVED
 
 Version: 0.2.1
 
