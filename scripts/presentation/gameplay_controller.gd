@@ -44,41 +44,33 @@ const CARD_SCENE: PackedScene = preload("res://ui/components/card_view.tscn")
 ## face-down flags rendered here are read from RoundController.events(),
 ## the same authoritative source _known_dealer_cards() already trusted.
 ##
-## Worst case timing (last of 4 cards): 3 × DEAL_CARD_ANIMATION_STAGGER_MS
-## + DEAL_CARD_ANIMATION_TWEEN_MS = 450 + 180 = 630ms — comfortably inside
+## Worst case timing (last of 4 cards): 3 × deal_card_stagger_ms
+## + deal_card_tween_ms = 450 + 180 = 630ms at the defaults — inside
 ## PresentationController.DEAL_CARD_PRESENTATION_DWELL_MS (700ms), which
 ## exists purely as this animation's own safety net (see that constant's
 ## docstring). Named/colocated per docs/13 §2.1 (no scattered magic
-## numbers) — mirror pair below (_deal_card_stagger_ms/_deal_card_tween_ms)
+## numbers) — mirror pair below (deal_card_stagger_ms/deal_card_tween_ms)
 ## exists only for override_deal_card_animation_timing_for_test(), the same
 ## pattern PresentationController uses for override_fallback_ms_for_test().
-const DEAL_CARD_ANIMATION_STAGGER_MS: int = 150
-const DEAL_CARD_ANIMATION_TWEEN_MS: int = 180
-const DEAL_CARD_ANIMATION_ENTRANCE_SCALE: float = 0.55
 
 ## L2 item 2 (翻底牌): total flip duration (split into two equal halves —
 ## see _play_dealer_hole_reveal_animation()). Kept comfortably under
 ## PresentationController.DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS (300ms),
 ## that constant's own safety net.
-const DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS: int = 240
 
 ## L2 item 3 (點數跳動): within team-lead's requested 150-250ms range. Not
 ## gated by any PresentationController dwell/fallback — HandTotal updates
 ## happen on non-blocking actions (HIT/STAND/etc, specs/003 Out of Scope for
 ## blocking) as well as blocking ones, so this only has to stay readable,
 ## not race a presentation timer.
-const VALUE_TOTAL_TICK_MS: int = 200
 
 ## Bust gets extra emphasis on top of the tick (team-lead: "短暫放大回彈"):
 ## a brief scale bounce on the whole ValueDisplayView, played once the
 ## ticking number lands on its final (bust) total.
-const VALUE_TOTAL_BUST_EMPHASIS_MS: int = 220
-const VALUE_TOTAL_BUST_EMPHASIS_SCALE: float = 1.2
 
 ## L2 item 4a (籌碼變化 — numeric roll half only, see this file's batch
 ## report for the color-flash half's blocker): same 150-250ms family as the
 ## hand total tick.
-const CHIPS_TICK_MS: int = 200
 
 ## L2 item 5 (結果橫幅進場): fade+scale entrance for the result banner
 ## instead of it simply always being there. PLAYER_BLACKJACK gets a
@@ -87,15 +79,11 @@ const CHIPS_TICK_MS: int = 200
 ## ui/theme/lsbj_theme.tres yet either (same real gap as item 4's
 ## result/win/lose — flagged in this batch's report), so only the motion
 ## half of "更強的進場" ships this batch.
-const RESULT_BANNER_FADE_MS: int = 220
-const RESULT_BANNER_BLACKJACK_BOUNCE_MS: int = 280
-const RESULT_BANNER_BLACKJACK_SCALE: float = 1.15
 
 ## L2 item 6 (荷官反應轉場): fade-in only (team-lead's spec: "貼圖切換時淡入
 ## ，不要硬切") — never stop()/pause() DealerIdleView's own AnimationPlayer
 ## (specs/003 L3-3/L3-4), so this only ever touches modulate/visible on
 ## both views, exactly like the pre-existing hide/show it replaces.
-const DEALER_REACTION_FADE_MS: int = 220
 
 const _RANK_STRINGS := {
 	Card.Rank.ACE: "A",
@@ -158,20 +146,27 @@ var _result_banner: Label = null
 var _dealer_idle_view: DealerIdleView = null
 var _dealer_reaction_view: DealerReactionView = null
 
-# Overridable only through override_deal_card_animation_timing_for_test();
-# production code must always read DEAL_CARD_ANIMATION_STAGGER_MS/
-# DEAL_CARD_ANIMATION_TWEEN_MS.
-var _deal_card_stagger_ms: int = DEAL_CARD_ANIMATION_STAGGER_MS
-var _deal_card_tween_ms: int = DEAL_CARD_ANIMATION_TWEEN_MS
+# Exported so a designer can tune the feel in the Inspector without touching
+# code — that is the reason this project uses Godot at all. The
+# override_*_for_test() seams below still work; they set these same fields.
+# Ranges are chosen so the deal envelope stays inside
+# PresentationController.DEAL_CARD_PRESENTATION_DWELL_MS (700ms): at the
+# maximum 400ms stagger the four-card sequence would exceed it, so treat the
+# upper end as deliberately reachable but not free — the dwell net will cut in.
+@export_group("發牌動畫 Deal")
+@export_range(50, 400, 10, "suffix:ms") var deal_card_stagger_ms: int = 150
+@export_range(60, 400, 10, "suffix:ms") var deal_card_tween_ms: int = 180
+@export_range(0.1, 1.0, 0.05) var deal_card_entrance_scale: float = 0.55
+@export var deal_card_transition: Tween.TransitionType = Tween.TRANS_BACK
+@export var deal_card_ease: Tween.EaseType = Tween.EASE_OUT
 
-# Overridable only through override_dealer_hole_reveal_animation_timing_for_test();
-# production code must always read DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS.
-var _dealer_hole_reveal_tween_ms: int = DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS
+@export_group("翻底牌 Hole reveal")
+@export_range(80, 600, 10, "suffix:ms") var dealer_hole_reveal_tween_ms: int = 240
 
-# Overridable only through override_value_total_animation_timing_for_test();
-# production code must always read VALUE_TOTAL_TICK_MS/VALUE_TOTAL_BUST_EMPHASIS_MS.
-var _value_total_tick_ms: int = VALUE_TOTAL_TICK_MS
-var _value_total_bust_emphasis_ms: int = VALUE_TOTAL_BUST_EMPHASIS_MS
+@export_group("點數 Hand total")
+@export_range(50, 600, 10, "suffix:ms") var value_total_tick_ms: int = 200
+@export_range(80, 600, 10, "suffix:ms") var value_total_bust_emphasis_ms: int = 220
+@export_range(1.0, 2.0, 0.05) var value_total_bust_emphasis_scale: float = 1.2
 
 # -1 is "never rendered yet" (a real total is always >= 0) — refresh() runs
 # right inside setup() itself (see that function), so the very first render
@@ -193,14 +188,17 @@ var _bust_emphasis_played: bool = false
 var _pending_bust_total_evaluation_is_bust: bool = false
 
 # Overridable only through override_chips_animation_timing_for_test().
-var _chips_tick_ms: int = CHIPS_TICK_MS
+@export_group("籌碼 Chips")
+@export_range(50, 600, 10, "suffix:ms") var chips_tick_ms: int = 200
 
 # -1 sentinel, same reasoning as _last_rendered_hand_total.
 var _last_rendered_chips: int = -1
 
 # Overridable only through override_result_banner_animation_timing_for_test().
-var _result_banner_fade_ms: int = RESULT_BANNER_FADE_MS
-var _result_banner_blackjack_bounce_ms: int = RESULT_BANNER_BLACKJACK_BOUNCE_MS
+@export_group("結果橫幅 Result banner")
+@export_range(50, 600, 10, "suffix:ms") var result_banner_fade_ms: int = 220
+@export_range(80, 800, 10, "suffix:ms") var result_banner_blackjack_bounce_ms: int = 280
+@export_range(1.0, 2.0, 0.05) var result_banner_blackjack_scale: float = 1.15
 
 # "" sentinel doubles as "no banner shown" (ResultBanner's own empty text) —
 # no separate not-yet-rendered flag needed, unlike the -1 int sentinels
@@ -209,7 +207,9 @@ var _last_rendered_result_banner_text: String = ""
 var _result_banner_tween: Tween = null
 
 # Overridable only through override_dealer_reaction_fade_timing_for_test().
-var _dealer_reaction_fade_ms: int = DEALER_REACTION_FADE_MS
+@export_group("荷官反應 Dealer reaction")
+@export_range(0, 600, 10, "suffix:ms") var dealer_reaction_fade_ms: int = 220
+@export_group("")
 var _dealer_reaction_tween: Tween = null
 
 # Only one tick of each kind should ever be running at once — refresh() can
@@ -328,7 +328,7 @@ func _show_dealer_reaction_with_fade(texture: Texture2D) -> void:
 	_dealer_reaction_view.modulate.a = 0.0
 	if _dealer_reaction_tween != null and _dealer_reaction_tween.is_valid():
 		_dealer_reaction_tween.kill()
-	var dur_sec := maxf(0.001, _dealer_reaction_fade_ms / 1000.0)
+	var dur_sec := maxf(0.001, dealer_reaction_fade_ms / 1000.0)
 	var tween := _dealer_reaction_view.create_tween()
 	_dealer_reaction_tween = tween
 	tween.tween_property(_dealer_reaction_view, "modulate:a", 1.0, dur_sec)
@@ -337,7 +337,7 @@ func _show_dealer_reaction_with_fade(texture: Texture2D) -> void:
 ## Test seam: shortens the crossfade's own timing so a real Tween-driven
 ## test can finish quickly. Never used by production wiring.
 func override_dealer_reaction_fade_timing_for_test(fade_ms: int) -> void:
-	_dealer_reaction_fade_ms = fade_ms
+	dealer_reaction_fade_ms = fade_ms
 
 
 ## Test seam: mirrors force_value_and_chips_ticks_finished_for_test() — lets
@@ -382,7 +382,7 @@ func _on_presentation_started(kind: StringName, token: String) -> void:
 
 ## Renders the four initial cards face-up/face-down exactly as
 ## _render_hands() eventually would, but starting fully transparent and
-## scaled down, then tweens each one in, staggered by _deal_card_stagger_ms
+## scaled down, then tweens each one in, staggered by deal_card_stagger_ms
 ## per card in real deal order (docs/03 sequence: player, dealer upcard,
 ## player, dealer hole). The event stream (not snapshot()) is the source
 ## for the same secrecy reason _known_dealer_cards() already documents —
@@ -408,14 +408,14 @@ func _play_deal_card_animation(token: String) -> void:
 		var parent := _player_hand_view if event.hand_owner == RoundEvent.HAND_PLAYER else _dealer_hand_view
 		parent.add_child(view)
 		view.modulate.a = 0.0
-		view.scale = Vector2(DEAL_CARD_ANIMATION_ENTRANCE_SCALE, DEAL_CARD_ANIMATION_ENTRANCE_SCALE)
+		view.scale = Vector2(deal_card_entrance_scale, deal_card_entrance_scale)
 
-		var dur_sec := maxf(0.001, _deal_card_tween_ms / 1000.0)
+		var dur_sec := maxf(0.001, deal_card_tween_ms / 1000.0)
 		var tween := view.create_tween()
 		tween.tween_interval(_deal_card_delay_sec(i))
 		tween.set_parallel(true)
 		tween.tween_property(view, "modulate:a", 1.0, dur_sec)
-		tween.tween_property(view, "scale", Vector2.ONE, dur_sec).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(view, "scale", Vector2.ONE, dur_sec).set_trans(deal_card_transition).set_ease(deal_card_ease)
 		if i == entries.size() - 1:
 			tween.chain().tween_callback(_finish_deal_card_animation.bind(token))
 
@@ -484,7 +484,7 @@ func _play_dealer_hole_reveal_animation(token: String) -> void:
 	if hole_view == null:
 		return
 	var revealed_card := _revealed_dealer_hole_card()
-	var half_dur := maxf(0.001, (_dealer_hole_reveal_tween_ms / 2.0) / 1000.0)
+	var half_dur := maxf(0.001, (dealer_hole_reveal_tween_ms / 2.0) / 1000.0)
 	var tween := hole_view.create_tween()
 	tween.tween_property(hole_view, "scale:x", 0.0, half_dur)
 	tween.tween_callback(_reveal_hole_card_face.bind(hole_view, revealed_card))
@@ -535,7 +535,7 @@ func force_dealer_hole_reveal_animation_midpoint_for_test() -> void:
 ## can finish quickly. Never used by production wiring — mirrors
 ## override_deal_card_animation_timing_for_test().
 func override_dealer_hole_reveal_animation_timing_for_test(tween_ms: int) -> void:
-	_dealer_hole_reveal_tween_ms = tween_ms
+	dealer_hole_reveal_tween_ms = tween_ms
 
 
 ## The dealer's hand's last child, if it's still showing face-down — the
@@ -572,8 +572,8 @@ func _revealed_dealer_hole_card() -> Card:
 ## test can finish quickly. Never used by production wiring — mirrors
 ## PresentationController.override_presentation_dwell_ms_for_test().
 func override_deal_card_animation_timing_for_test(stagger_ms: int, tween_ms: int) -> void:
-	_deal_card_stagger_ms = stagger_ms
-	_deal_card_tween_ms = tween_ms
+	deal_card_stagger_ms = stagger_ms
+	deal_card_tween_ms = tween_ms
 
 
 ## Deliberately deterministic and wall-clock-free: this is the exact math
@@ -587,7 +587,7 @@ func override_deal_card_animation_timing_for_test(stagger_ms: int, tween_ms: int
 ## relies on is test_deal_card_animation_completes_the_presentation_via_a_real_tween,
 ## which only asserts the *final* state, not a mid-flight snapshot.
 func _deal_card_delay_sec(index: int) -> float:
-	return (index * _deal_card_stagger_ms) / 1000.0
+	return (index * deal_card_stagger_ms) / 1000.0
 
 
 ## Test-facing wrapper for _deal_card_delay_sec(), in milliseconds (tests
@@ -758,7 +758,7 @@ func _animate_hand_total_to(evaluation: HandEvaluator.Evaluation) -> void:
 			_play_bust_emphasis()
 		return
 	var label := _hand_total.get_value_label()
-	var dur_sec := maxf(0.001, _value_total_tick_ms / 1000.0)
+	var dur_sec := maxf(0.001, value_total_tick_ms / 1000.0)
 	if _hand_total_tick_tween != null and _hand_total_tick_tween.is_valid():
 		_hand_total_tick_tween.kill()
 	var tween := _hand_total.create_tween()
@@ -791,10 +791,10 @@ func _value_display_state_for(evaluation: HandEvaluator.Evaluation) -> int:
 ## node, for the same automatic-cleanup reason.
 func _play_bust_emphasis() -> void:
 	_bust_emphasis_played = true
-	var dur_sec := maxf(0.001, (_value_total_bust_emphasis_ms / 2.0) / 1000.0)
+	var dur_sec := maxf(0.001, (value_total_bust_emphasis_ms / 2.0) / 1000.0)
 	var tween := _hand_total.create_tween()
 	tween.tween_property(
-		_hand_total, "scale", Vector2(VALUE_TOTAL_BUST_EMPHASIS_SCALE, VALUE_TOTAL_BUST_EMPHASIS_SCALE), dur_sec
+		_hand_total, "scale", Vector2(value_total_bust_emphasis_scale, value_total_bust_emphasis_scale), dur_sec
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_hand_total, "scale", Vector2.ONE, dur_sec)
 
@@ -802,8 +802,8 @@ func _play_bust_emphasis() -> void:
 ## Test seam: shortens the tick/bust-emphasis timing so a real Tween-driven
 ## test can finish quickly. Never used by production wiring.
 func override_value_total_animation_timing_for_test(tick_ms: int, bust_emphasis_ms: int) -> void:
-	_value_total_tick_ms = tick_ms
-	_value_total_bust_emphasis_ms = bust_emphasis_ms
+	value_total_tick_ms = tick_ms
+	value_total_bust_emphasis_ms = bust_emphasis_ms
 
 
 ## Test-facing: see _bust_emphasis_played's own doc comment.
@@ -834,7 +834,7 @@ func _animate_chips_to(target_chips: int) -> void:
 	if previous_chips == -1 or previous_chips == target_chips:
 		_chips_label.text = "籌碼：%d" % target_chips
 		return
-	var dur_sec := maxf(0.001, _chips_tick_ms / 1000.0)
+	var dur_sec := maxf(0.001, chips_tick_ms / 1000.0)
 	if _chips_tick_tween != null and _chips_tick_tween.is_valid():
 		_chips_tick_tween.kill()
 	var tween := _chips_label.create_tween()
@@ -851,7 +851,7 @@ func _set_chips_label_text(current: float) -> void:
 ## Test seam: shortens the chips tick timing so a real Tween-driven test can
 ## finish quickly. Never used by production wiring.
 func override_chips_animation_timing_for_test(tick_ms: int) -> void:
-	_chips_tick_ms = tick_ms
+	chips_tick_ms = tick_ms
 
 
 ## Test seam: this test harness's assertion helpers run outside any `await`
@@ -916,15 +916,15 @@ func _animate_result_banner_entrance(target_text: String, outcome: int) -> void:
 	_result_banner.scale = Vector2(0.4, 0.4) if is_blackjack else Vector2(0.92, 0.92)
 	if _result_banner_tween != null and _result_banner_tween.is_valid():
 		_result_banner_tween.kill()
-	var fade_dur_sec := maxf(0.001, _result_banner_fade_ms / 1000.0)
+	var fade_dur_sec := maxf(0.001, result_banner_fade_ms / 1000.0)
 	var tween := _result_banner.create_tween()
 	_result_banner_tween = tween
 	tween.set_parallel(true)
 	tween.tween_property(_result_banner, "modulate:a", 1.0, fade_dur_sec)
 	if is_blackjack:
-		var bounce_dur_sec := maxf(0.001, _result_banner_blackjack_bounce_ms / 1000.0)
+		var bounce_dur_sec := maxf(0.001, result_banner_blackjack_bounce_ms / 1000.0)
 		tween.tween_property(
-			_result_banner, "scale", Vector2(RESULT_BANNER_BLACKJACK_SCALE, RESULT_BANNER_BLACKJACK_SCALE), bounce_dur_sec
+			_result_banner, "scale", Vector2(result_banner_blackjack_scale, result_banner_blackjack_scale), bounce_dur_sec
 		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tween.chain().tween_property(_result_banner, "scale", Vector2.ONE, bounce_dur_sec * 0.5)
 	else:
@@ -934,8 +934,8 @@ func _animate_result_banner_entrance(target_text: String, outcome: int) -> void:
 ## Test seam: shortens the entrance's own timing so a real Tween-driven
 ## test can finish quickly. Never used by production wiring.
 func override_result_banner_animation_timing_for_test(fade_ms: int, blackjack_bounce_ms: int) -> void:
-	_result_banner_fade_ms = fade_ms
-	_result_banner_blackjack_bounce_ms = blackjack_bounce_ms
+	result_banner_fade_ms = fade_ms
+	result_banner_blackjack_bounce_ms = blackjack_bounce_ms
 
 
 ## Test seam: mirrors force_value_and_chips_ticks_finished_for_test().
