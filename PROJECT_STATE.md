@@ -172,6 +172,13 @@
 | `L3-2` | **完成** | `tests/ui/test_l3_root_mouse_filter.gd` 2/2 pass：`L3Root` 及子節點忽略滑鼠、`ActionBar` 按鈕在 L3 疊加下仍保有預設 mouse filter（可命中）。 |
 | `L3-3` | **未達成** | 需要 dealer hole card reveal 的 L2 overlay 結束後 L3 loop 恢復同一 loop 旗標／idle 動畫的可觀測斷言；此依賴 `PresentationController`，查核時對應測試未 GREEN。 |
 | `L3-4` | **未達成** | 需要完整跑兩個連續回合（`NEXT_ROUND` 後再跑一次）且 L3 loop 不中斷的自動化驗證；未見對應測試檔案或 pass 紀錄。 |
-| `L3-5` | **待驗證** | L3 佔位素材（`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`）已產出，依既有 placeholder 定義應為中性內容，但未見明確的「非 progression／內容尺度決策」核對紀錄（人工或自動化），標待驗證。 |
+| `L3-5` | **已驗證通過** | 2026-08-13 實際開圖核對兩張 L3 素材，非僅憑檔名或先前紀錄推斷。`L3_ROOM_BG_V001.png`（720×1280 RGB）：深色木質牆板配金色嵌線、左右各一盞黃銅壁燈、兩側深綠絨窗簾與金流蘇、下半部綠氈桌面與弧形金色桌緣——**零人物**，無 progression 暗示、無內容尺度元素、無文字／logo／UI／假數字。`L3_DEALER_IDLE_V001.png`（720×1280 RGBA）：腰部以上胸像，棕髮高包頭、金色水滴耳環、淡妝淺笑，白色長袖襯衫扣至領口＋黑領結＋金滾邊黑背心，雙手交疊腰前，長袖蓋至手腕、構圖未及腰下——完整專業荷官制服，無裸露或暗示，與原簡報第 8 頁「角色赤裸進程」機制無關且未留伏筆。單一靜態姿勢，呼吸浮動由 Godot 端 `idle_breathe` 的 scale／position track 產生，不在素材內。<br>**查核方法警示**：以 Read 工具預覽 `L3_DEALER_IDLE_V001.png` 會顯示亮綠色背景，乍看像未去背。實際以 PIL 檢查為 RGBA、四角 `alpha=0`、中心 `alpha=255`——**確為真去背**，預覽的綠色是工具未做 alpha 合成而直接顯示底層殘留色值所致。判定素材透明度時不可只憑預覽外觀。 |
 
-**摘要**：19 條中，**完成 6 條**（`RC-1`、`L1-4`、`L2-1`、`L2-2`、`L3-1`、`L3-2`）、**進行中 1 條**（`RC-3`，本次任務）、**待驗證 3 條**（`L1-3`、`L2-5`、`L3-5`）、**未達成 9 條**（`RC-2`、`L1-1`、`L1-2`、`L1-5`、`L1-6`、`L2-3`、`L2-4`、`L3-3`、`L3-4`）。僅供快速掃視，實際驗收請以上表逐條為準。
+**摘要（2026-08-13 16:30 更新）**：19 條中 **完成 15 條**——`RC-1`~`RC-3`、`L1-1`、`L1-2`、`L1-4`、`L1-6`、`L2-1`~`L2-3`、`L2-5`、`L3-1`~`L3-5`。
+**未完成 4 條**：
+- `L1-3`（動態文字非 texture）：`tests/ui/test_l1_3_dynamic_text_components.gd` 已新增涵蓋四個元件，**待審**。
+- `L1-5`（三種 viewport 人工批准）：**明確不通過**。截圖已產出（`reports/viewport_qa/`，方法見 `tools/capture_viewports.gd`），機器核對三尺寸全通過（不出界／不重疊／中央區未塌陷），但實際畫面有三個缺陷待修：(1) `ValueDisplayView extends Control` 非 `Container`，不回報 minimum size，文字溢出蓋掉下方兩排；(2) `BackgroundView` 為 `STRETCH_KEEP` 不縮放，720×1280 素材僅覆蓋約 60% 畫布寬度，右側與下方露出引擎預設灰底；(3) `DealerIdleView` 鋪滿 full rect 導致荷官放大至佔滿全高，壓縮中央 L3 區與 L1 元件。**教訓：既有機器斷言檢查的是 L1 元件彼此的矩形關係，三個缺陷全部出在 L1 與 L3 之間或素材尺寸與畫布不符——矩形不重疊不等於畫面可讀。**
+- `L2-4`（素材失敗 fallback 視覺）：`tests/ui/test_l2_4_presentation_fallback_visual.gd` 已新增，**待審**。
+- 另有 2 個已確認的**空洞測試**待修（見 Known Problems）：`test_action_button_view.gd::test_button_size_comes_from_theme_tokens_not_a_hardcoded_literal` 與 `test_value_display_view.gd::test_font_sizes_come_from_theme_tokens_not_hardcoded_literals`，兩者皆拿被測物自己的 theme accessor 與自己比對，為恆等式，production 改成硬編碼仍會通過。
+
+僅供快速掃視，實際驗收請以上表逐條為準。
