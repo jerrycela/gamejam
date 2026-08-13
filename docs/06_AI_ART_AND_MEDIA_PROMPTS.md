@@ -373,6 +373,14 @@ L1_TABLE_FELT_V001.png
 
 **現況（已產出，非規劃中）**：`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`、6 張 `L2_DEALER_REACT_*`、`L1_CARD_BACK_V001`、`L1_TABLE_FELT_V001`、`CHAR_DEALER_CANON_V001` 皆已生成並進版控。母帶在 `assets/source/image/`，runtime 貼圖在 `assets/textures/`。
 
+### 已取代素材（SUPERSEDED）——保留，不可清除
+
+被 §5 拆分決策取代的素材，狀態標記為 `SUPERSEDED`，**保留供追溯，不進 runtime，不得清除**：
+
+- `L3_DEALER_PLATE_BAKED_V001.png`（`assets/source/image/`）——拆分前「荷官烙進背景」單一融合結構的產物，即本文件修訂前 §5 prompt 的實際輸出樣本。取代理由見 `docs/plans/2026-08-13-doc06-asset-structure-revision.md`（問題陳述第 1 節）。已登記於 Figma `09 Media Assets` 頁（frame `19:21`）。此檔案存在的意義正是「為什麼不把荷官畫進背景」這個問題的直接答案；沒有這張圖，拆分決策就少了最直觀的佐證。
+
+**通則**：被取代的素材應標記 `SUPERSEDED` 並保留，而非刪除；本節命名與登記表應涵蓋 `assets/` 下所有實際存在的素材檔案，而不只是目前生效版本——未被任何文件提到的檔案，會被後續維護者誤判為可清除的殘留垃圾。
+
 每個素材記錄：
 
 ```text
