@@ -61,19 +61,42 @@ anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="BackgroundView" type="TextureRect" parent="L3Root"]
+## L1-5 layout defect #2 fix: STRETCH_KEEP (the old value) draws the
+## 720x1280 source at native pixel size with no scaling at all, so any
+## canvas wider or taller than that leaves bare grey clear-color showing
+## (reports/viewport_qa/*.png, most visible on wide_portrait_1200x1600).
+## STRETCH_KEEP_ASPECT_COVERED scales by max(target_w/src_w, target_h/src_h)
+## — by construction that always covers the full assigned rect (the
+## constraining axis matches exactly, the other overflows and is
+## center-cropped) across all three reference viewport sizes. Checked the
+## crop against the source art before choosing this: the room's key
+## composition elements (wall sconce top-left, table's green felt edge
+## bottom-left) sit well inside the frame, not at the edges most likely to
+## be cropped.
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 texture = ExtResource("4")
-stretch_mode = 2
+stretch_mode = 6
 
 [node name="DealerIdleView" type="TextureRect" parent="L3Root"]
+## L1-5 layout defect #3 fix: full-rect anchors + STRETCH_KEEP_ASPECT_CENTERED
+## scaled the dealer to fill the *entire* viewport height (the source's
+## 720x1280 aspect ratio nearly matches the 1080x1920 reference canvas
+## itself), overtaking the "center reserved for L3 ambience" zone the L1
+## layout (CenterSpacer, docs/06 §5b) was built around. Anchoring only the
+## upper anchor_bottom fraction of the canvas — 0.537, the room
+## background's measured table-edge height fraction — confines the dealer
+## to the region above the table edge at any of the three reference aspect
+## ratios, expressed as a ratio rather than a fixed pixel height so it
+## doesn't only fit the one canvas size it was tuned against.
+## anchors_preset intentionally left unset (no longer a named preset like
+## "full rect") — anchor_top/right/bottom below are the real custom values.
 layout_mode = 1
-anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_bottom = 0.537
 mouse_filter = 2
 texture = ExtResource("5")
 expand_mode = 1

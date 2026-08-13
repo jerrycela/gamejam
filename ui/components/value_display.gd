@@ -36,6 +36,7 @@ const STATE_LABELS := {
 
 @onready var _value_label: Label = $VBoxContainer/ValueLabel
 @onready var _state_label: Label = $VBoxContainer/StateLabel
+@onready var _vbox: VBoxContainer = $VBoxContainer
 
 
 func _ready() -> void:
@@ -46,6 +47,21 @@ func _ready() -> void:
 		"font_size", get_theme_constant("value_total_state_font_size", "Tokens")
 	)
 	_refresh()
+
+
+## L1-5 layout defect fix: ValueDisplayView extends plain Control (not
+## Container), so unless it overrides this, Godot never propagates its
+## VBoxContainer child's minimum size upward — a parent layout container
+## (BottomCluster's VBoxContainer) then allocates it ~0 height, but the
+## Labels still render at their natural size regardless, overflowing into
+## whatever sits below (reports/viewport_qa/*.png: the "0" total covering
+## CHIPS/BET and the top of PlayerHandView). Reporting the real child
+## minimum size here is what makes BottomCluster give this component
+## correct room in the first place.
+func _get_minimum_size() -> Vector2:
+	if _vbox == null:
+		return Vector2.ZERO
+	return _vbox.get_combined_minimum_size()
 
 
 ## Renders whatever HandEvaluator already decided — this is the only path
@@ -76,6 +92,10 @@ func _refresh() -> void:
 	var color: Color = _color_for_state()
 	_value_label.add_theme_color_override("font_color", color)
 	_state_label.add_theme_color_override("font_color", color)
+	# Value's text length can change (e.g. "9" -> "21"), which can change
+	# the VBoxContainer's minimum width — tell the parent layout container
+	# to re-query _get_minimum_size() instead of caching a stale value.
+	update_minimum_size()
 
 
 func _color_for_state() -> Color:
