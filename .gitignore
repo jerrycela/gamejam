@@ -13,3 +13,6 @@ reports/*
 
 # Spectra app data
 .spectra/
+
+# Godot re-imports assets on open; the generated .import files are per-machine
+*.png.import
