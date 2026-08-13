@@ -137,3 +137,74 @@ func test_action_bar_is_a_panel_container_using_the_theme_action_bar_panel_varia
 
 	assert_bool(bar is PanelContainer).is_true()
 	assert_str(String(bar.theme_type_variation)).is_equal("ActionBarPanel")
+
+
+## Real player-input wiring (new task): pressing any button in this panel
+## must be observable as a single action_id-carrying signal a controller can
+## connect to exactly once, regardless of which concrete button kind
+## (ActionButtonView vs DealButtonView) was actually pressed — a
+## GameplayController shouldn't need to know button implementation details.
+func test_pressing_a_hit_button_emits_action_requested_with_the_hit_action_id() -> void:
+	var runner := scene_runner("res://ui/components/action_bar.tscn")
+	var bar := runner.scene() as ActionBarView
+	bar.sync_with_legal_actions([RoundController.ACTION_HIT, RoundController.ACTION_STAND])
+	var hit_button: ActionButtonView = null
+	for button in bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			hit_button = button
+	monitor_signals(bar)
+
+	hit_button.pressed.emit()
+
+	await assert_signal(bar).is_emitted("action_requested", RoundController.ACTION_HIT)
+
+
+func test_pressing_the_deal_button_emits_action_requested_with_the_deal_action_id() -> void:
+	var runner := scene_runner("res://ui/components/action_bar.tscn")
+	var bar := runner.scene() as ActionBarView
+	bar.sync_with_legal_actions([RoundController.ACTION_PLACE_BET, RoundController.ACTION_DEAL])
+	monitor_signals(bar)
+
+	bar.deal_button().pressed.emit()
+
+	await assert_signal(bar).is_emitted("action_requested", RoundController.ACTION_DEAL)
+
+
+func test_pressing_the_next_round_button_emits_action_requested_with_the_next_round_action_id() -> void:
+	var runner := scene_runner("res://ui/components/action_bar.tscn")
+	var bar := runner.scene() as ActionBarView
+	bar.sync_with_legal_actions([RoundController.ACTION_NEXT_ROUND])
+	monitor_signals(bar)
+
+	bar.deal_button().pressed.emit()
+
+	await assert_signal(bar).is_emitted("action_requested", RoundController.ACTION_NEXT_ROUND)
+
+
+## Named-method counter (not an inline lambda) connected directly to the
+## signal under test — deliberately avoiding gdUnit4's known lambda-adjacency
+## discovery bug (a hand-written `signal.connect(func(...): ...)` in a test
+## file can silently drop the *next* test in file order from discovery).
+var _resync_emission_count := 0
+
+
+func _count_resync_emission(_action_id: StringName) -> void:
+	_resync_emission_count += 1
+
+
+func test_pressing_a_button_after_a_resync_still_emits_exactly_once() -> void:
+	# Guards against a stale connection surviving a rebuild and firing twice
+	# (or a new one stacking on top of an old one that somehow wasn't freed).
+	var runner := scene_runner("res://ui/components/action_bar.tscn")
+	var bar := runner.scene() as ActionBarView
+	bar.sync_with_legal_actions([RoundController.ACTION_HIT, RoundController.ACTION_STAND])
+	bar.sync_with_legal_actions([RoundController.ACTION_HIT, RoundController.ACTION_STAND])
+	var hit_button: ActionButtonView = null
+	for button in bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			hit_button = button
+	bar.action_requested.connect(_count_resync_emission)
+
+	hit_button.pressed.emit()
+
+	assert_int(_resync_emission_count).is_equal(1)

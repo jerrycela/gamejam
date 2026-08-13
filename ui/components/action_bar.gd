@@ -29,6 +29,13 @@ extends PanelContainer
 ## in place without touching composition, per the Figma component
 ## description's explicit warning against an empty-panel flash.
 
+## Real player-input wiring: fires whenever any button in this panel is
+## pressed, carrying the RoundController action StringName that button
+## represents — a GameplayController connects to this exactly once and
+## never needs to know whether the press came from an ActionButtonView or
+## a DealButtonView.
+signal action_requested(action_id: StringName)
+
 const ACTION_ORDER: Array[int] = [
 	ActionButtonView.Action.HIT,
 	ActionButtonView.Action.STAND,
@@ -56,15 +63,24 @@ func _ready() -> void:
 ## Rebuilds the button set to exactly what `legal_actions` calls for, in
 ## Figma's canonical order (DEAL/NEXT_ROUND first, matching the Betting/
 ## RoundEnd variant screenshots where BTN_DEAL is the only button), each
-## enabled. Frees old buttons immediately (not queue_free()) so callers can
-## inspect the result synchronously in the same frame.
+## enabled. remove_child() happens synchronously so callers can inspect the
+## new composition (button_count()/buttons()/deal_button()) in the same
+## frame — that guarantee comes from remove_child() leaving the tree
+## immediately, not from how the old node's memory gets released, so this
+## uses queue_free() rather than free(): a real player-input caller
+## (GameplayController) can end up calling this from inside the very
+## button's own `pressed` handler that's about to become illegal (e.g. HIT
+## staying legal while STAND does, or vice versa) — Godot forbids
+## synchronously free()-ing an object that's still mid-signal-emission
+## ("attempted to free a locked object"), and queue_free() is exactly the
+## engine's own answer to that: same effect, deferred to a safe point.
 ##
 ## PLACE_BET is intentionally ignored here — see class doc for why it has no
 ## ActionBar button.
 func sync_with_legal_actions(legal_actions: Array) -> void:
 	for child in _button_row.get_children():
 		_button_row.remove_child(child)
-		child.free()
+		child.queue_free()
 	if legal_actions.has(RoundController.ACTION_DEAL):
 		_add_deal_button(DealButtonView.DealLabel.DEAL)
 	elif legal_actions.has(RoundController.ACTION_NEXT_ROUND):
@@ -76,6 +92,7 @@ func sync_with_legal_actions(legal_actions: Array) -> void:
 			_button_row.add_child(button)
 			button.action = action
 			button.disabled = false
+			button.pressed.connect(_emit_action_requested.bind(action_id))
 
 
 func _add_deal_button(label_variant: DealButtonView.DealLabel) -> void:
@@ -83,6 +100,21 @@ func _add_deal_button(label_variant: DealButtonView.DealLabel) -> void:
 	_button_row.add_child(deal_button)
 	deal_button.label = label_variant
 	deal_button.disabled = false
+	var action_id: StringName = (
+		RoundController.ACTION_DEAL
+		if label_variant == DealButtonView.DealLabel.DEAL
+		else RoundController.ACTION_NEXT_ROUND
+	)
+	deal_button.pressed.connect(_emit_action_requested.bind(action_id))
+
+
+## Every button's `pressed` connects here via .bind(action_id) — a bound
+## Callable to a named method, not an inline lambda (gdUnit4's known
+## lambda-adjacency test-discovery bug is specifically about hand-written
+## `signal.connect(func(...): ...)`; this sidesteps it in production code
+## too, not just tests).
+func _emit_action_requested(action_id: StringName) -> void:
+	action_requested.emit(action_id)
 
 
 ## Disables (or re-enables) every currently-instantiated button without

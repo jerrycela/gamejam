@@ -307,7 +307,12 @@ func test_late_completion_diagnostic_reports_the_kind_it_was_late_for() -> void:
 
 	# Diagnostics are most needed exactly when something arrives late — the
 	# signal must still say which presentation it was late for, not "".
-	assert_signal(presentation).is_emitted(
+	# NOTE: is_emitted() is documented as async (gdUnit4 source,
+	# GdUnitSignalAssert.gd) and must be awaited — without it, the assertion
+	# never actually runs and this test passes even if the signal is never
+	# emitted at all (verified by mutation: deleting the .emit() call
+	# entirely still left this test green before this fix).
+	await assert_signal(presentation).is_emitted(
 		"presentation_completion_rejected",
 		&"DEAL_CARD",
 		original_token,

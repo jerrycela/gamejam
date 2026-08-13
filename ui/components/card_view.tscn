@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/components/card_view.gd" id="1"]
 [ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="2"]
+[ext_resource type="Texture2D" path="res://assets/textures/L1_CARD_BACK_V001.png" id="3"]
 
 [node name="CardFaceView" type="PanelContainer"]
 theme = ExtResource("2")
@@ -10,6 +11,22 @@ script = ExtResource("1")
 suit = 0
 orientation = 0
 rank = "A"
+face_down = false
+
+[node name="CardBackTexture" type="TextureRect" parent="."]
+## Hidden-card rendering (no dedicated Figma component — CARD_BACK is still
+## PENDING_CREATE in docs/12; team-lead's instruction was to use this texture
+## directly). Sits as a sibling of VBoxContainer inside the same
+## PanelContainer, so it fully covers the rank/suit Labels when visible
+## rather than merely sitting alongside them. Visibility is driven entirely
+## by CardFaceView.face_down in card_view.gd, never set here.
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+visible = false
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2

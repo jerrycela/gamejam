@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="1"]
 [ext_resource type="PackedScene" path="res://ui/components/card_view.tscn" id="2"]
@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://ui/components/value_display.tscn" id="9"]
 [ext_resource type="Script" path="res://scripts/presentation/dealer_idle_view.gd" id="10"]
 [ext_resource type="Script" path="res://scripts/presentation/game_bootstrap.gd" id="11"]
+[ext_resource type="Script" path="res://scripts/presentation/gameplay_controller.gd" id="12"]
 
 [sub_resource type="Animation" id="Animation_dealer_idle_breathe"]
 resource_name = "idle_breathe"
@@ -284,6 +285,9 @@ script = ExtResource("6")
 
 [node name="PresentationController" type="Node" parent="."]
 script = ExtResource("7")
+
+[node name="GameplayController" type="Node" parent="."]
+script = ExtResource("12")
 
 [node name="Bootstrap" type="Node" parent="."]
 script = ExtResource("11")

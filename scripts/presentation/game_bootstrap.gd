@@ -21,7 +21,9 @@ extends Node
 
 @onready var _round_controller_node: RoundControllerNode = get_node("../RoundController")
 @onready var _presentation_controller: PresentationController = get_node("../PresentationController")
-@onready var _action_bar: ActionBarView = get_node("../L1Root/TableUI").find_child("ActionBar", true, false)
+@onready var _gameplay_controller: GameplayController = get_node("../GameplayController")
+@onready var _table_ui: Node = get_node("../L1Root/TableUI")
+@onready var _action_bar: ActionBarView = _table_ui.find_child("ActionBar", true, false)
 @onready var _fallback_overlay: Control = get_node("../L2Root/ResultOverlay")
 
 var controller: RoundController = null
@@ -50,7 +52,18 @@ func bootstrap(shoe_id: String, shuffle_seed: int) -> void:
 
 	_round_controller_node.setup(controller)
 	_presentation_controller.setup(controller, _action_bar, _fallback_overlay)
-	_action_bar.sync_with_legal_actions(controller.legal_actions())
+	_gameplay_controller.setup(
+		controller,
+		ledger,
+		_presentation_controller,
+		_action_bar,
+		_table_ui.find_child("DealerHandView", true, false),
+		_table_ui.find_child("PlayerHandView", true, false),
+		_table_ui.find_child("HandTotal", true, false),
+		_table_ui.find_child("ChipsDisplay", true, false),
+		_table_ui.find_child("BetControl", true, false),
+		_table_ui.find_child("ResultBanner", true, false),
+	)
 
 
 ## Test-facing record of what was actually passed to DeckShoe.create_runtime()

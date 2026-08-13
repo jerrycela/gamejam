@@ -47,9 +47,25 @@ const RED_SUITS := [Suit.DIAMOND, Suit.HEART]
 		rank = value
 		_refresh()
 
+## Hidden-card rendering for a dealer hole card the core has not (yet)
+## revealed. There is no dedicated CARD_BACK Figma component to switch to
+## (docs/12: still PENDING_CREATE) — per team-lead's instruction, face_down
+## just toggles a plain L1_CARD_BACK_V001 texture over this same component
+## rather than blocking on building a new one. Whatever `rank`/`suit` this
+## node holds while face_down is irrelevant to a real caller: the presentation
+## layer never has the hidden card's real identity in the first place
+## (RoundController.snapshot()'s secrecy boundary), so it is never set to
+## anything meaningful here.
+@export var face_down: bool = false:
+	set(value):
+		face_down = value
+		_refresh()
+
 @onready var _rank_label: Label = $VBoxContainer/CornerBox/RankLabel
 @onready var _corner_suit_label: Label = $VBoxContainer/CornerBox/CornerSuitLabel
 @onready var _center_suit_label: Label = $VBoxContainer/CenterBox/CenterSuitLabel
+@onready var _vbox: VBoxContainer = $VBoxContainer
+@onready var _card_back: TextureRect = $CardBackTexture
 
 
 func _ready() -> void:
@@ -69,6 +85,11 @@ func _ready() -> void:
 func _refresh() -> void:
 	custom_minimum_size = _size_for_orientation()
 	if not is_node_ready():
+		return
+
+	_vbox.visible = not face_down
+	_card_back.visible = face_down
+	if face_down:
 		return
 
 	var glyph: String = SUIT_GLYPHS.get(suit, "")

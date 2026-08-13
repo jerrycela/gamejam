@@ -25,10 +25,19 @@ func test_card_face_rank_and_suit_are_rendered_by_label_nodes() -> void:
 
 
 func test_card_face_scene_has_no_texture_node_carrying_text() -> void:
+	# CardBackTexture (added for face-down hidden-card rendering, see
+	# tests/ui/test_card_face_view_face_down.gd) is the one legitimate
+	# TextureRect this scene now has — it carries no rank/suit text at all
+	# (it's the card *back*, hidden by default), so it doesn't violate L1-3's
+	# "dynamic text must never be baked into a texture" rule. The rule this
+	# test actually needs to keep proving is narrower: no texture node is
+	# the one rendering Rank/Suit — that's still exclusively RankLabel/
+	# CornerSuitLabel/CenterSuitLabel.
 	var runner := scene_runner("res://ui/components/card_view.tscn")
 	var card := runner.scene() as CardFaceView
 
-	assert_int(card.find_children("*", "TextureRect", true, false).size()).is_equal(0)
+	for texture_rect in card.find_children("*", "TextureRect", true, false):
+		assert_str(texture_rect.name).is_equal("CardBackTexture")
 	assert_int(card.find_children("*", "Sprite2D", true, false).size()).is_equal(0)
 
 
