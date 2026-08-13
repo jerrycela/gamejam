@@ -361,9 +361,16 @@ CHAR_DEALER_CANON_V001.png
 L3_ROOM_BG_V001.png
 L3_DEALER_IDLE_V001.png
 L2_DEALER_REACT_PLAYER_WIN_V001.png
+L2_DEALER_REACT_PLAYER_LOSE_V001.png
+L2_DEALER_REACT_BLACKJACK_V001.png
+L2_DEALER_REACT_PLAYER_BUST_V001.png
+L2_DEALER_REACT_PUSH_V001.png
+L2_DEALER_REACT_SURRENDER_V001.png
 L1_CARD_BACK_V001.png
 L1_TABLE_FELT_V001.png
 ```
+
+**登記規則**：本表**逐一列出完整檔名**，不使用 `L2_DEALER_REACT_*` 這類萬用字元縮寫。理由：本節的用途是讓維護者能以檔名搜尋到特定素材的登記；萬用字元寫法會讓搜尋落空，等同未登記。`tools/check_doc_drift.gd` 採嚴格字面比對，正是依據這條規則。
 
 **2026-08-13 修訂**：
 
@@ -371,7 +378,7 @@ L1_TABLE_FELT_V001.png
 - 移除 `L3_DEALER_IDLE_STAGE00_V001.mp4` 這個預設命名——待機動態改用引擎內動畫，image-to-video 母帶目前不是必要產出（見 §11 實測紀錄）；若未來生成後端支援影片且團隊決定仍要一份影片版待機，命名為 `L3_DEALER_IDLE_LOOP_V001.mp4`，非本表預設項目。
 - `L2_..._V001` 系列統一補上 `REACT` 語意前綴，與 §6 既有 Reaction IDs（`DEALER_REACT_PLAYER_WIN` 等）命名邏輯對齊；`.mp4` 版本是否保留取決於 §12 是否/何時連動修訂（本次修訂未涉及）。
 
-**現況（已產出，非規劃中）**：`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`、6 張 `L2_DEALER_REACT_*`、`L1_CARD_BACK_V001`、`L1_TABLE_FELT_V001`、`CHAR_DEALER_CANON_V001` 皆已生成並進版控。母帶在 `assets/source/image/`，runtime 貼圖在 `assets/textures/`。
+**現況（已產出，非規劃中）**：`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`、上表逐一列出的 6 張 `L2_DEALER_REACT_...` 反應素材、`L1_CARD_BACK_V001`、`L1_TABLE_FELT_V001`、`CHAR_DEALER_CANON_V001` 皆已生成並進版控。母帶在 `assets/source/image/`，runtime 貼圖在 `assets/textures/`。
 
 ### 已取代素材（SUPERSEDED）——保留，不可清除
 
