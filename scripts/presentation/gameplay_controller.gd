@@ -62,6 +62,41 @@ const DEAL_CARD_ANIMATION_ENTRANCE_SCALE: float = 0.55
 ## that constant's own safety net.
 const DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS: int = 240
 
+## L2 item 3 (點數跳動): within team-lead's requested 150-250ms range. Not
+## gated by any PresentationController dwell/fallback — HandTotal updates
+## happen on non-blocking actions (HIT/STAND/etc, specs/003 Out of Scope for
+## blocking) as well as blocking ones, so this only has to stay readable,
+## not race a presentation timer.
+const VALUE_TOTAL_TICK_MS: int = 200
+
+## Bust gets extra emphasis on top of the tick (team-lead: "短暫放大回彈"):
+## a brief scale bounce on the whole ValueDisplayView, played once the
+## ticking number lands on its final (bust) total.
+const VALUE_TOTAL_BUST_EMPHASIS_MS: int = 220
+const VALUE_TOTAL_BUST_EMPHASIS_SCALE: float = 1.2
+
+## L2 item 4a (籌碼變化 — numeric roll half only, see this file's batch
+## report for the color-flash half's blocker): same 150-250ms family as the
+## hand total tick.
+const CHIPS_TICK_MS: int = 200
+
+## L2 item 5 (結果橫幅進場): fade+scale entrance for the result banner
+## instead of it simply always being there. PLAYER_BLACKJACK gets a
+## stronger (bigger, springier) entrance — team-lead's spec also asked for
+## `result/blackjack` gold, but that token doesn't exist in
+## ui/theme/lsbj_theme.tres yet either (same real gap as item 4's
+## result/win/lose — flagged in this batch's report), so only the motion
+## half of "更強的進場" ships this batch.
+const RESULT_BANNER_FADE_MS: int = 220
+const RESULT_BANNER_BLACKJACK_BOUNCE_MS: int = 280
+const RESULT_BANNER_BLACKJACK_SCALE: float = 1.15
+
+## L2 item 6 (荷官反應轉場): fade-in only (team-lead's spec: "貼圖切換時淡入
+## ，不要硬切") — never stop()/pause() DealerIdleView's own AnimationPlayer
+## (specs/003 L3-3/L3-4), so this only ever touches modulate/visible on
+## both views, exactly like the pre-existing hide/show it replaces.
+const DEALER_REACTION_FADE_MS: int = 220
+
 const _RANK_STRINGS := {
 	Card.Rank.ACE: "A",
 	Card.Rank.JACK: "J",
@@ -132,6 +167,57 @@ var _deal_card_tween_ms: int = DEAL_CARD_ANIMATION_TWEEN_MS
 # Overridable only through override_dealer_hole_reveal_animation_timing_for_test();
 # production code must always read DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS.
 var _dealer_hole_reveal_tween_ms: int = DEALER_HOLE_REVEAL_ANIMATION_TWEEN_MS
+
+# Overridable only through override_value_total_animation_timing_for_test();
+# production code must always read VALUE_TOTAL_TICK_MS/VALUE_TOTAL_BUST_EMPHASIS_MS.
+var _value_total_tick_ms: int = VALUE_TOTAL_TICK_MS
+var _value_total_bust_emphasis_ms: int = VALUE_TOTAL_BUST_EMPHASIS_MS
+
+# -1 is "never rendered yet" (a real total is always >= 0) — refresh() runs
+# right inside setup() itself (see that function), so the very first render
+# must snap straight to the real value instead of ticking up from a bogus 0.
+var _last_rendered_hand_total: int = -1
+
+# Test-facing only (hand_total_bust_emphasis_played_for_test()): proves the
+# extra bust emphasis actually ran, since a real Tween's mid-flight scale
+# can't be asserted on reliably (see the deal-card animation's own ordering
+# test for why a wall-clock partial snapshot was abandoned in this codebase).
+var _bust_emphasis_played: bool = false
+
+# Whether the most recently *requested* hand total render was a bust — set
+# unconditionally every _animate_hand_total_to() call, independent of
+# whether a tick tween actually ran. force_value_and_chips_ticks_finished_for_test()
+# consults this to know whether it still owes a bust emphasis play when it
+# kills an in-flight tick before that tick's own completion callback would
+# have played it.
+var _pending_bust_total_evaluation_is_bust: bool = false
+
+# Overridable only through override_chips_animation_timing_for_test().
+var _chips_tick_ms: int = CHIPS_TICK_MS
+
+# -1 sentinel, same reasoning as _last_rendered_hand_total.
+var _last_rendered_chips: int = -1
+
+# Overridable only through override_result_banner_animation_timing_for_test().
+var _result_banner_fade_ms: int = RESULT_BANNER_FADE_MS
+var _result_banner_blackjack_bounce_ms: int = RESULT_BANNER_BLACKJACK_BOUNCE_MS
+
+# "" sentinel doubles as "no banner shown" (ResultBanner's own empty text) —
+# no separate not-yet-rendered flag needed, unlike the -1 int sentinels
+# above, since "" is never a real banner message.
+var _last_rendered_result_banner_text: String = ""
+var _result_banner_tween: Tween = null
+
+# Overridable only through override_dealer_reaction_fade_timing_for_test().
+var _dealer_reaction_fade_ms: int = DEALER_REACTION_FADE_MS
+var _dealer_reaction_tween: Tween = null
+
+# Only one tick of each kind should ever be running at once — refresh() can
+# fire again (e.g. two actions in quick succession) before a prior tick
+# finishes; without killing the stale Tween first, two Tweens would race to
+# write the same Label's text every frame.
+var _hand_total_tick_tween: Tween = null
+var _chips_tick_tween: Tween = null
 
 
 ## `ledger` is the same BetLedger instance the caller constructed
@@ -213,11 +299,54 @@ func _render_dealer_reaction() -> void:
 	if show_reaction:
 		var reaction_texture := reaction_texture_for_outcome(_controller.outcome())
 		if reaction_texture != null:
-			_dealer_reaction_view.show_texture(reaction_texture)
-			_dealer_idle_view.visible = false
+			_show_dealer_reaction_with_fade(reaction_texture)
 			return
 	_dealer_reaction_view.hide_reaction()
+	_dealer_reaction_view.modulate.a = 1.0
 	_dealer_idle_view.visible = true
+	_dealer_idle_view.modulate.a = 1.0
+
+
+## L2 item 6: visible/hidden booleans flip exactly as immediately as the
+## pre-animation code did (docs/03-style tests assert these synchronously
+## right after driving a round to ROUND_END, with no `await` — deferring
+## either flag to a Tween's completion would reintroduce the exact
+## flakiness this file's batch report already documented and fixed for
+## HandTotal/chips). Only the reaction image's own opacity fades — the
+## crossfade is "the dealer's face fades in on top", not "the idle view
+## visibly lingers while fading out".
+func _show_dealer_reaction_with_fade(texture: Texture2D) -> void:
+	var already_showing := _dealer_reaction_view.visible
+	_dealer_reaction_view.texture = texture
+	_dealer_reaction_view.visible = true
+	_dealer_idle_view.visible = false
+	# ROUND_END can refresh() more than once (e.g. GameplayController's own
+	# dealer-hit loop after the hole reveal) without the outcome changing —
+	# don't replay the fade for a no-op re-render.
+	if already_showing:
+		return
+	_dealer_reaction_view.modulate.a = 0.0
+	if _dealer_reaction_tween != null and _dealer_reaction_tween.is_valid():
+		_dealer_reaction_tween.kill()
+	var dur_sec := maxf(0.001, _dealer_reaction_fade_ms / 1000.0)
+	var tween := _dealer_reaction_view.create_tween()
+	_dealer_reaction_tween = tween
+	tween.tween_property(_dealer_reaction_view, "modulate:a", 1.0, dur_sec)
+
+
+## Test seam: shortens the crossfade's own timing so a real Tween-driven
+## test can finish quickly. Never used by production wiring.
+func override_dealer_reaction_fade_timing_for_test(fade_ms: int) -> void:
+	_dealer_reaction_fade_ms = fade_ms
+
+
+## Test seam: mirrors force_value_and_chips_ticks_finished_for_test() — lets
+## a test assert the fully-faded-in end state deterministically.
+func force_dealer_reaction_fade_finished_for_test() -> void:
+	if _dealer_reaction_tween != null and _dealer_reaction_tween.is_valid():
+		_dealer_reaction_tween.kill()
+	if _dealer_reaction_view != null:
+		_dealer_reaction_view.modulate.a = 1.0
 
 
 func _on_action_requested(action_id: StringName) -> void:
@@ -594,31 +723,228 @@ func _make_card_view(card: Card, face_down: bool) -> CardFaceView:
 	return view
 
 
+## L2 item 3 (點數跳動): still never computes anything itself —
+## HandEvaluator.evaluate() is the exact same call _render_hand_total()
+## already made; only how the *result* reaches the screen changed (ticking
+## instead of an instant text swap).
 func _render_hand_total() -> void:
 	if _hand_total == null:
 		return
 	var snapshot := _controller.snapshot()
 	var evaluation := HandEvaluator.evaluate(snapshot.player_cards)
-	_hand_total.set_from_hand_evaluation(evaluation)
+	_animate_hand_total_to(evaluation)
 
 
+## Sets ValueDisplayView's state/color immediately (Hard/Soft/Bust reads as
+## an instant category change, not something that "ticks") and only
+## animates the number label: a Tween drives an intermediate float from the
+## previously-rendered total to the new one, rounding it into the value
+## Label's text each step. First-ever render (before/immediately after
+## setup(), or whenever nothing actually changed — refresh() can be called
+## repeatedly with the same total) always snaps instead of playing a
+## pointless 0-length tick.
+func _animate_hand_total_to(evaluation: HandEvaluator.Evaluation) -> void:
+	_hand_total.state = _value_display_state_for(evaluation)
+	var target_total := evaluation.total
+	var previous_total := _last_rendered_hand_total
+	_last_rendered_hand_total = target_total
+	_bust_emphasis_played = false
+	_pending_bust_total_evaluation_is_bust = evaluation.is_bust
+	if previous_total == -1 or previous_total == target_total:
+		_hand_total.value = str(target_total)
+		# No tick plays here (nothing to animate), so nothing else will ever
+		# call _play_bust_emphasis() for this evaluation — play it now.
+		if evaluation.is_bust:
+			_play_bust_emphasis()
+		return
+	var label := _hand_total.get_value_label()
+	var dur_sec := maxf(0.001, _value_total_tick_ms / 1000.0)
+	if _hand_total_tick_tween != null and _hand_total_tick_tween.is_valid():
+		_hand_total_tick_tween.kill()
+	var tween := _hand_total.create_tween()
+	_hand_total_tick_tween = tween
+	tween.tween_method(
+		_set_value_total_label_text.bind(label), float(previous_total), float(target_total), dur_sec
+	)
+	tween.tween_callback(func() -> void:
+		_hand_total.value = str(target_total)
+		if evaluation.is_bust:
+			_play_bust_emphasis()
+	)
+
+
+func _set_value_total_label_text(current: float, label: Label) -> void:
+	label.text = str(roundi(current))
+
+
+func _value_display_state_for(evaluation: HandEvaluator.Evaluation) -> int:
+	if evaluation.is_bust:
+		return ValueDisplayView.State.BUST
+	if evaluation.is_soft:
+		return ValueDisplayView.State.SOFT
+	return ValueDisplayView.State.HARD
+
+
+## team-lead: "爆牌額外強調（短暫放大回彈...)" — plays once, right as the
+## ticking number lands on the bust total. Bound to _hand_total's own Tween
+## the same way every other animation in this file is bound to its target
+## node, for the same automatic-cleanup reason.
+func _play_bust_emphasis() -> void:
+	_bust_emphasis_played = true
+	var dur_sec := maxf(0.001, (_value_total_bust_emphasis_ms / 2.0) / 1000.0)
+	var tween := _hand_total.create_tween()
+	tween.tween_property(
+		_hand_total, "scale", Vector2(VALUE_TOTAL_BUST_EMPHASIS_SCALE, VALUE_TOTAL_BUST_EMPHASIS_SCALE), dur_sec
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_hand_total, "scale", Vector2.ONE, dur_sec)
+
+
+## Test seam: shortens the tick/bust-emphasis timing so a real Tween-driven
+## test can finish quickly. Never used by production wiring.
+func override_value_total_animation_timing_for_test(tick_ms: int, bust_emphasis_ms: int) -> void:
+	_value_total_tick_ms = tick_ms
+	_value_total_bust_emphasis_ms = bust_emphasis_ms
+
+
+## Test-facing: see _bust_emphasis_played's own doc comment.
+func hand_total_bust_emphasis_played_for_test() -> bool:
+	return _bust_emphasis_played
+
+
+## L2 item 4a (籌碼變化 — numeric roll only; see this batch's report for why
+## the win/lose color flash half is deferred, not silently dropped): chips
+## tick from the previously-rendered value to the real ledger value the
+## same way _animate_hand_total_to() ticks the hand total. BetControl stays
+## an instant text swap (team-lead never asked for a bet-control animation,
+## only "chip" changes, and BetControl is a distinct read-only field per
+## this class's own setup() doc).
 func _render_chips_and_bet() -> void:
 	if _chips_label == null or _bet_label == null or _ledger == null:
 		return
-	_chips_label.text = "籌碼：%d" % _ledger.available_chips
+	_animate_chips_to(_ledger.available_chips)
 	var displayed_bet: int = (
 		_ledger.committed_bet if _ledger.committed_bet > 0 else _ledger.selected_bet
 	)
 	_bet_label.text = "下注：%d" % displayed_bet
 
 
+func _animate_chips_to(target_chips: int) -> void:
+	var previous_chips := _last_rendered_chips
+	_last_rendered_chips = target_chips
+	if previous_chips == -1 or previous_chips == target_chips:
+		_chips_label.text = "籌碼：%d" % target_chips
+		return
+	var dur_sec := maxf(0.001, _chips_tick_ms / 1000.0)
+	if _chips_tick_tween != null and _chips_tick_tween.is_valid():
+		_chips_tick_tween.kill()
+	var tween := _chips_label.create_tween()
+	_chips_tick_tween = tween
+	tween.tween_method(
+		_set_chips_label_text, float(previous_chips), float(target_chips), dur_sec
+	)
+
+
+func _set_chips_label_text(current: float) -> void:
+	_chips_label.text = "籌碼：%d" % roundi(current)
+
+
+## Test seam: shortens the chips tick timing so a real Tween-driven test can
+## finish quickly. Never used by production wiring.
+func override_chips_animation_timing_for_test(tick_ms: int) -> void:
+	_chips_tick_ms = tick_ms
+
+
+## Test seam: this test harness's assertion helpers run outside any `await`
+## (unlike the real-Tween end-to-end tests, which do `await
+## get_tree().create_timer(...)`), yet observably some frames still process
+## between statements here (gdUnit4/scene_runner button-press plumbing) —
+## enough for a real Tween to have advanced partway, but not deterministically
+## to any particular value. Any test that needs to assert the *exact* final
+## HandTotal/chips text right after a synchronous action must call this
+## first, the same way PresentationController's force_*_for_test() seams
+## let a test skip past real-Timer nondeterminism. Kills whatever tick is
+## still running and snaps both labels straight to the already-known target
+## (_last_rendered_hand_total/_last_rendered_chips — set the instant
+## _animate_hand_total_to()/_animate_chips_to() are called, before any
+## tween exists).
+func force_value_and_chips_ticks_finished_for_test() -> void:
+	if _hand_total_tick_tween != null and _hand_total_tick_tween.is_valid():
+		_hand_total_tick_tween.kill()
+	if _chips_tick_tween != null and _chips_tick_tween.is_valid():
+		_chips_tick_tween.kill()
+	if _hand_total != null and _last_rendered_hand_total != -1:
+		_hand_total.value = str(_last_rendered_hand_total)
+		if _pending_bust_total_evaluation_is_bust and not _bust_emphasis_played:
+			_play_bust_emphasis()
+	if _chips_label != null and _last_rendered_chips != -1:
+		_chips_label.text = "籌碼：%d" % _last_rendered_chips
+
+
+## L2 item 5: `.text` is always set immediately/synchronously here, exactly
+## as before — only opacity/scale are animated. Existing callers that
+## assert result_banner.text right after an action (e.g.
+## test_surrender_button_press_settles_the_round_immediately) keep working
+## unmodified; only the *entrance* is new.
 func _render_result_banner() -> void:
 	if _result_banner == null:
 		return
+	var target_text := ""
+	var outcome := -1
 	if _controller.current_state == RoundController.State.ROUND_END and _controller.has_outcome():
-		_result_banner.text = _OUTCOME_LABELS.get(_controller.outcome(), "")
+		outcome = _controller.outcome()
+		target_text = _OUTCOME_LABELS.get(outcome, "")
+	_result_banner.text = target_text
+	_animate_result_banner_entrance(target_text, outcome)
+
+
+## Skips replaying the entrance for a no-op refresh() (ROUND_END can
+## refresh() more than once without the outcome changing) or for the
+## "banner cleared" case (team-lead only asked for an entrance, not an
+## exit animation) — those just reset opacity/scale instantly so the next
+## real entrance starts clean.
+func _animate_result_banner_entrance(target_text: String, outcome: int) -> void:
+	var already_shown := target_text == _last_rendered_result_banner_text
+	_last_rendered_result_banner_text = target_text
+	if target_text.is_empty():
+		_result_banner.modulate.a = 0.0
+		_result_banner.scale = Vector2.ONE
+		return
+	if already_shown:
+		return
+	var is_blackjack := outcome == BlackjackOutcome.Type.PLAYER_BLACKJACK
+	_result_banner.modulate.a = 0.0
+	_result_banner.scale = Vector2(0.4, 0.4) if is_blackjack else Vector2(0.92, 0.92)
+	if _result_banner_tween != null and _result_banner_tween.is_valid():
+		_result_banner_tween.kill()
+	var fade_dur_sec := maxf(0.001, _result_banner_fade_ms / 1000.0)
+	var tween := _result_banner.create_tween()
+	_result_banner_tween = tween
+	tween.set_parallel(true)
+	tween.tween_property(_result_banner, "modulate:a", 1.0, fade_dur_sec)
+	if is_blackjack:
+		var bounce_dur_sec := maxf(0.001, _result_banner_blackjack_bounce_ms / 1000.0)
+		tween.tween_property(
+			_result_banner, "scale", Vector2(RESULT_BANNER_BLACKJACK_SCALE, RESULT_BANNER_BLACKJACK_SCALE), bounce_dur_sec
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.chain().tween_property(_result_banner, "scale", Vector2.ONE, bounce_dur_sec * 0.5)
 	else:
-		_result_banner.text = ""
+		tween.tween_property(_result_banner, "scale", Vector2.ONE, fade_dur_sec)
+
+
+## Test seam: shortens the entrance's own timing so a real Tween-driven
+## test can finish quickly. Never used by production wiring.
+func override_result_banner_animation_timing_for_test(fade_ms: int, blackjack_bounce_ms: int) -> void:
+	_result_banner_fade_ms = fade_ms
+	_result_banner_blackjack_bounce_ms = blackjack_bounce_ms
+
+
+## Test seam: mirrors force_value_and_chips_ticks_finished_for_test().
+func force_result_banner_entrance_finished_for_test() -> void:
+	if _result_banner_tween != null and _result_banner_tween.is_valid():
+		_result_banner_tween.kill()
+	if _result_banner != null and not _last_rendered_result_banner_text.is_empty():
+		_result_banner.modulate.a = 1.0
+		_result_banner.scale = Vector2.ONE
 
 
 func _new_round_id() -> String:

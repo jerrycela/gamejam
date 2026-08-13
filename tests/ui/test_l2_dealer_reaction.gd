@@ -110,6 +110,34 @@ func test_round_end_shows_the_reaction_matching_the_outcome_and_hides_idle_view(
 	)
 
 
+## L2 item 6 (荷官反應轉場): the reaction image's own opacity fades in
+## rather than snapping straight to opaque — visible/hidden booleans still
+## flip immediately (see test_round_end_shows_the_reaction_matching_the_outcome_and_hides_idle_view,
+## unchanged by this), only modulate.a is new.
+func test_reaction_fade_completes_via_a_real_tween_and_lands_fully_opaque() -> void:
+	var h := _make_harness_scene()
+	var gameplay := h.root.get_node("GameplayController") as GameplayController
+	gameplay.override_dealer_reaction_fade_timing_for_test(20)
+
+	_play_to_dealer_bust(h)
+	await h.runner.simulate_frames(20)
+
+	var reaction_view: DealerReactionView = h.reaction_view
+	assert_bool(reaction_view.visible).is_true()
+	assert_float(reaction_view.modulate.a).is_equal(1.0)
+
+
+## Test-seam parity with the other force_*_finished_for_test() methods.
+func test_force_dealer_reaction_fade_finished_for_test_snaps_to_fully_opaque() -> void:
+	var h := _make_harness_scene()
+	var gameplay := h.root.get_node("GameplayController") as GameplayController
+	_play_to_dealer_bust(h)
+
+	gameplay.force_dealer_reaction_fade_finished_for_test()
+
+	assert_float((h.reaction_view as DealerReactionView).modulate.a).is_equal(1.0)
+
+
 func test_idle_loop_keeps_playing_underneath_the_reaction_overlay_l3_3() -> void:
 	# specs/003 L3-3: overlay must not stop the loop, only hide its
 	# rendering. Verified against the same is_idle_loop_active() signal

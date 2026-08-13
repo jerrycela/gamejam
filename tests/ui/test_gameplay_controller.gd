@@ -138,7 +138,12 @@ func test_completing_deal_presentation_renders_real_cards_and_hides_the_dealers_
 	assert_int(dealer_up.suit).is_equal(CardFaceView.Suit.SPADE)
 	assert_bool(dealer_hole.face_down).is_true()
 
-	# HandTotal reflects the player's real evaluation (17, hard).
+	# HandTotal reflects the player's real evaluation (17, hard). L2 item 3
+	# (點數跳動) means the number now ticks up rather than snapping — force
+	# it to its already-known target so this can still assert the exact
+	# final text deterministically, same idea as PresentationController's
+	# own force_*_for_test() seams.
+	harness.gameplay.force_value_and_chips_ticks_finished_for_test()
 	assert_str(harness.hand_total.get_value_label().text).is_equal("17")
 	assert_str(harness.hand_total.get_state_label().text).is_equal("硬")
 
@@ -252,10 +257,128 @@ func test_hit_button_press_draws_a_real_card_and_resyncs_the_action_bar() -> voi
 	hit_button.pressed.emit()
 
 	# 8H+9C+2H = 19, still PLAYER_TURN, decision locked -> only HIT/STAND.
+	harness.gameplay.force_value_and_chips_ticks_finished_for_test()
 	assert_int(harness.player_hand_view.get_child_count()).is_equal(3)
 	assert_str(harness.hand_total.get_value_label().text).is_equal("19")
 	assert_int(harness.controller.current_state).is_equal(RoundController.State.PLAYER_TURN)
 	assert_int(harness.action_bar.button_count()).is_equal(2)
+
+
+## L2 item 3 (點數跳動): genuine end-to-end confidence check (real Tween,
+## real wall-clock wait — same style as the deal/flip animations' own such
+## tests). With a short overridden tick duration, HandTotal and the chips
+## Label both land on their real final values on their own, not merely
+## because force_value_and_chips_ticks_finished_for_test() was called.
+func test_hand_total_and_chips_tick_to_their_final_values_via_a_real_tween() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-tick-realtween")
+	harness.gameplay.override_value_total_animation_timing_for_test(20, 20)
+	harness.gameplay.override_chips_animation_timing_for_test(20)
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var hit_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			hit_button = button
+
+	hit_button.pressed.emit()
+	await get_tree().create_timer(0.3).timeout
+
+	assert_str(harness.hand_total.get_value_label().text).is_equal("19")
+	assert_str(harness.chips_label.text).is_equal("籌碼：%d" % (BetLedger.STARTING_CHIPS - BetLedger.MINIMUM_BET))
+
+
+## L2 item 3: "爆牌額外強調" — a player HIT that busts must play the extra
+## bust emphasis exactly once, on top of the state actually reading BUST.
+## Cards: player 10H+9C=19 (no natural, dealer up 7S doesn't peek), one HIT
+## draws 5H -> 24, bust -> settles immediately (PLAYER_BUST), never reaching
+## DEALER_TURN so this test needs no hole-reveal step at all.
+func test_bust_emphasis_plays_when_a_hit_busts_the_player() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.TEN, Card.Suit.HEARTS),
+		_card(Card.Rank.SEVEN, Card.Suit.SPADES),
+		_card(Card.Rank.NINE, Card.Suit.CLUBS),
+		_card(Card.Rank.SIX, Card.Suit.DIAMONDS),
+		_card(Card.Rank.FIVE, Card.Suit.HEARTS),
+	]
+	var harness := _make_harness(cards, "shoe-gc-bust")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var hit_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			hit_button = button
+
+	hit_button.pressed.emit()
+	harness.gameplay.force_value_and_chips_ticks_finished_for_test()
+
+	assert_int(harness.controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_int(harness.controller.outcome()).is_equal(BlackjackOutcome.Type.PLAYER_BUST)
+	assert_str(harness.hand_total.get_value_label().text).is_equal("24")
+	assert_int(harness.hand_total.state).is_equal(ValueDisplayView.State.BUST)
+	assert_bool(harness.gameplay.hand_total_bust_emphasis_played_for_test()).is_true()
+
+
+## L2 item 5 (結果橫幅進場): the instant a settling action produces an
+## outcome, .text is already correct (unchanged contract — every other test
+## in this file that reads result_banner.text right after an action keeps
+## working), but the entrance itself has not played any frame yet, so
+## opacity/scale must still read as "not yet arrived".
+func test_result_banner_entrance_starts_transparent_and_scaled_down() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-banner-start")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var surrender_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.SURRENDER:
+			surrender_button = button
+
+	surrender_button.pressed.emit()
+
+	# Not an exact-0.0 check: by this point in the test several prior
+	# actions (deal press, notify, surrender press) have already let a few
+	# real frames slip through (the same nondeterminism
+	# force_value_and_chips_ticks_finished_for_test()'s own doc comment
+	# documents for this harness), so the animation may already be partway
+	# through its fade. The structural guarantee that matters — it has NOT
+	# instantly snapped to fully shown — still holds reliably.
+	assert_str(harness.result_banner.text).is_equal("已投降")
+	assert_bool(harness.result_banner.modulate.a < 1.0).is_true()
+	assert_bool(harness.result_banner.scale.x < 1.0).is_true()
+
+
+## Test-seam parity with force_value_and_chips_ticks_finished_for_test().
+func test_force_result_banner_entrance_finished_for_test_snaps_to_the_final_state() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-banner-force")
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var surrender_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.SURRENDER:
+			surrender_button = button
+	surrender_button.pressed.emit()
+
+	harness.gameplay.force_result_banner_entrance_finished_for_test()
+
+	assert_float(harness.result_banner.modulate.a).is_equal(1.0)
+	assert_bool(harness.result_banner.scale.is_equal_approx(Vector2.ONE)).is_true()
+
+
+## Genuine end-to-end confidence check (real Tween, real wall-clock wait —
+## same style as every other animation in this file).
+func test_result_banner_entrance_completes_via_a_real_tween() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-banner-realtween")
+	harness.gameplay.override_result_banner_animation_timing_for_test(20, 20)
+	harness.action_bar.deal_button().pressed.emit()
+	harness.presentation.notify_presentation_finished(harness.presentation.active_token())
+	var surrender_button: ActionButtonView = null
+	for button in harness.action_bar.buttons():
+		if button.action == ActionButtonView.Action.SURRENDER:
+			surrender_button = button
+
+	surrender_button.pressed.emit()
+	await get_tree().create_timer(0.3).timeout
+
+	assert_float(harness.result_banner.modulate.a).is_equal(1.0)
 
 
 func test_surrender_button_press_settles_the_round_immediately() -> void:
