@@ -80,6 +80,7 @@ Codex Operating Rules
 | `docs/11_REFERENCE_DECK_ANALYSIS.md` | 原始 Google Slides 概念稿逐頁檢視與 MVP 對應 |
 | `docs/12_FIGMA_COMPONENT_MANIFEST.md` | Figma Component 與 Godot `.tscn` 對應的權威登記表（node id、批准版本、同步狀態） |
 | `docs/13_PRESENTATION_MAPPING.md` | L2/L3 blocking／non-blocking presentation 與 `fallback_duration_ms` 的登記表 |
+| `docs/14_MVP_HANDOVER.md` | MVP 交接說明：現在的狀態、架構關鍵邊界、這一天踩過的坑、刻意留下的邊界、下一步候選。接手時先讀這份。 |
 | `specs/000_HOUSE_RULES_DECISION.md` | 開工前必須確認的 House Rules |
 | `specs/001_FIRST_VERTICAL_SLICE.md` | 第一個可玩 Vertical Slice |
 | `specs/002_CORE_TRANSACTION_AND_DEAL_FLOW.md` | 下注交易、發牌、peek、natural 與 Shoe 重現語意 |
