@@ -13,6 +13,9 @@
 - **存在性查核規則（重要）**：判定某個 node 是否存在，**必須用 `get_metadata(fileKey, nodeId)` 直接查該 node**。
   不得用不帶 `nodeId` 的 `get_metadata(fileKey)` 頁面列表作為「不存在」的依據——該列表已證實會回傳不完整的結果（見下方 Verification Log 2026-08-13 第二筆）。
   否定型結論（「這個 node 不存在」）必須附上實際查詢過的 nodeId 與回傳內容，不能只說「沒看到」。
+- **Component property 查核規則**：`get_metadata` 只回傳結構（node id／型別／座標／尺寸），**不顯示 component property**。
+  要確認某個 property 是否存在、綁在哪個節點上，必須用 `get_context_for_code_connect(fileKey, nodeId)`，
+  或以 `use_figma` 讀該節點的 `componentPropertyReferences`。用 `get_metadata` 查不到 property 不構成「property 不存在」的證據。
 
 ### Verification Log
 
@@ -30,7 +33,7 @@
 | component_id | Figma component | figma_file_url | figma_node_id | approved_version | runtime_type | godot_scene | variants | last_reviewed | status |
 |---|---|---|---|---|---|---|---|---|---|
 | `BTN_ACTION` | Action Button | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `5:2` | `1.0.0` | `native_control` | `res://ui/components/action_button.tscn` | `Action / State` | `2026-08-13` | `APPROVED_PENDING_GODOT_SYNC` |
-| `BTN_DEAL` | Deal Button | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `9:17` | `1.0.0` | `native_control` | `res://ui/components/deal_button.tscn` | `State` | `2026-08-13` | `APPROVED_PENDING_GODOT_SYNC` |
+| `BTN_DEAL` | Deal Button | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `9:17` | `1.1.0` | `native_control` | `res://ui/components/deal_button.tscn` | `State`（variants）+ `Label`（text property `Label#24:0`，預設 `DEAL`，另一合法值 `NEXT ROUND`） | `2026-08-13` | `HUMAN_APPROVAL_REQUIRED` |
 | `CARD_FACE` | Card Face | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `11:84` | `1.0.0` | `native_control` | `res://ui/components/card_view.tscn` | `Suit / Orientation`（variants）+ `Rank`（text property） | `2026-08-13` | `APPROVED_PENDING_GODOT_SYNC` |
 | `CARD_BACK` | Card Back | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/card_view.tscn` | `Style` | — | `PENDING_CREATE` |
 | `HAND_DEALER` | Dealer Hand Area | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/hand_view.tscn` | `Count / Hidden Card` | — | `PENDING_CREATE` |
@@ -40,12 +43,6 @@
 | `VALUE_BET` | Bet Counter | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/value_display.tscn` | `Editable / Locked` | — | `PENDING_CREATE` |
 | `STATUS_RESULT` | Round Result | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/result_banner.tscn` | `Win / Lose / Push / Bust / Blackjack` | — | `PENDING_CREATE` |
 | `PANEL_ACTION_BAR` | Action Bar | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `21:38` | `DRAFT` | `native_control` | `res://ui/components/action_bar.tscn` | `Player State` = `Betting / PlayerTurnFirst / PlayerTurnDecided / RoundEnd / Blocking` | `2026-08-13` | `HUMAN_APPROVAL_REQUIRED` |
-
-### 待處理變更（尚未生效，不可視為已完成）
-
-| component_id | 變更內容 | 狀態 |
-|---|---|---|
-| `BTN_DEAL` | 新增 `Label` TEXT property（預設 `DEAL`，另一合法值 `NEXT ROUND`），使同一元件可服務 `DEAL` 與 `NEXT_ROUND` 兩個動作。`State` 四個 variant 不變。作法沿用 `CARD_FACE` 以 `Rank` text property 避免 variant 爆炸的既有先例 | **實作中**。property 實際存在並經 `get_metadata` 複驗後，才可把 `approved_version` 推進為 `1.1.0`、`status` 改回 `HUMAN_APPROVAL_REQUIRED`（新增 property 屬視覺契約變更，需重新人工核准） |
 
 ## 3. Review Gate
 
