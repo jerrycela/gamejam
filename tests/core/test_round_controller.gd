@@ -1221,6 +1221,52 @@ func test_next_round_is_rejected_while_presentation_is_blocking() -> void:
 	assert_bool(controller.next_round()).is_true()
 
 
+func test_begin_presentation_rejects_a_previously_used_token_even_while_a_different_token_is_active() -> void:
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected([], "shoe-token-reuse")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.begin_presentation("DEAL_CARD")).is_true()
+	assert_bool(controller.complete_presentation("DEAL_CARD")).is_true()
+
+	assert_bool(controller.begin_presentation("DEAL_CARD")).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_TOKEN_REUSED)
+
+	assert_bool(controller.begin_presentation("DEALER_HOLE_CARD_REVEAL")).is_true()
+
+	# This is the actual bug closure: a stale, late completion signal for the
+	# already-burned "DEAL_CARD" token must not be able to match and unlock
+	# whatever OTHER token happens to be active right now.
+	assert_bool(controller.complete_presentation("DEAL_CARD")).is_false()
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_TOKEN_MISMATCH)
+	assert_bool(controller.complete_presentation("DEALER_HOLE_CARD_REVEAL")).is_true()
+
+
+func test_begin_presentation_rejects_a_token_reused_across_a_next_round_boundary() -> void:
+	var cards: Array[Card] = [
+		_card(Card.Rank.ACE, Card.Suit.HEARTS),
+		_card(Card.Rank.ACE, Card.Suit.SPADES),
+		_card(Card.Rank.KING, Card.Suit.CLUBS),
+		_card(Card.Rank.KING, Card.Suit.DIAMONDS),
+	]
+	for _i in range(20):
+		cards.append(_card(Card.Rank.TWO, Card.Suit.HEARTS))
+	var ledger := BetLedger.new()
+	var shoe := DeckShoe.create_injected(cards, "shoe-token-reuse-across-round")
+	var controller := RoundController.create_injected(shoe, ledger)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(controller.deal("round-token-reuse-1")).is_true()
+	assert_bool(controller.begin_presentation("DEAL_CARD")).is_true()
+	assert_bool(controller.complete_presentation("DEAL_CARD")).is_true()
+	assert_bool(controller.next_round()).is_true()
+
+	assert_bool(controller.begin_presentation("DEAL_CARD")).is_false()
+
+	assert_str(controller.last_error).is_equal(RoundController.ERROR_PRESENTATION_TOKEN_REUSED)
+	assert_bool(controller.begin_presentation("DEAL_CARD_ROUND_2")).is_true()
+	assert_bool(controller.complete_presentation("DEAL_CARD_ROUND_2")).is_true()
+
+
 func _assert_deal_event(
 	event: RoundEvent,
 	sequence_no: int,

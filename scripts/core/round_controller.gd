@@ -29,6 +29,7 @@ const ERROR_NOT_FIRST_DECISION: StringName = &"NOT_FIRST_DECISION"
 const ERROR_DOUBLE_REJECTED: StringName = &"DOUBLE_REJECTED"
 const ERROR_PRESENTATION_TOKEN_INVALID: StringName = &"PRESENTATION_TOKEN_INVALID"
 const ERROR_PRESENTATION_ALREADY_ACTIVE: StringName = &"PRESENTATION_ALREADY_ACTIVE"
+const ERROR_PRESENTATION_TOKEN_REUSED: StringName = &"PRESENTATION_TOKEN_REUSED"
 const ERROR_PRESENTATION_TOKEN_MISMATCH: StringName = &"PRESENTATION_TOKEN_MISMATCH"
 const ERROR_PRESENTATION_BLOCKING: StringName = &"PRESENTATION_BLOCKING"
 const ERROR_NEXT_ROUND_REJECTED: StringName = &"NEXT_ROUND_REJECTED"
@@ -45,6 +46,7 @@ var _outcome: int = -1
 var _player_turn_decision_made: bool = false
 var _dealer_hole_revealed: bool = false
 var _active_presentation_token: String = ""
+var _used_presentation_tokens: Dictionary[String, bool] = {}
 var _requires_new_shoe: bool = false
 var _round_metadata: DeckShoe.RoundStartMetadata
 var _player_cards: Array[Card] = []
@@ -84,7 +86,11 @@ func begin_presentation(token: String) -> bool:
 	if not _active_presentation_token.is_empty():
 		last_error = ERROR_PRESENTATION_ALREADY_ACTIVE
 		return false
+	if _used_presentation_tokens.has(token):
+		last_error = ERROR_PRESENTATION_TOKEN_REUSED
+		return false
 	_active_presentation_token = token
+	_used_presentation_tokens[token] = true
 	last_error = &""
 	return true
 
