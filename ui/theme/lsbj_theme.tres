@@ -1,0 +1,195 @@
+[gd_resource type="Theme" load_steps=9 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_default"]
+bg_color = Color(0.960784, 0.725490, 0.258824, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.066667, 0.329412, 0.262745, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_pressed"]
+bg_color = Color(0.768627, 0.529412, 0.105882, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.066667, 0.329412, 0.262745, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_disabled"]
+bg_color = Color(0.435294, 0.501961, 0.470588, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.066667, 0.329412, 0.262745, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_focus"]
+bg_color = Color(0.960784, 0.725490, 0.258824, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.274510, 0.901961, 0.823529, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_danger_default"]
+bg_color = Color(0.878431, 0.352941, 0.352941, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.066667, 0.329412, 0.262745, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_danger_pressed"]
+bg_color = Color(0.658824, 0.235294, 0.262745, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.066667, 0.329412, 0.262745, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_danger_focus"]
+bg_color = Color(0.878431, 0.352941, 0.352941, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.274510, 0.901961, 0.823529, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_card_face"]
+bg_color = Color(1, 1, 1, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.682353, 0.733333, 0.709804, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 16.0
+content_margin_top = 16.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+
+[resource]
+default_font_size = 16
+Label/colors/font_color = Color(1, 1, 1, 1)
+
+PrimaryActionButton/base_type = &"Button"
+PrimaryActionButton/colors/font_color = Color(0.027451, 0.066667, 0.054902, 1)
+PrimaryActionButton/colors/font_focus_color = Color(0.027451, 0.066667, 0.054902, 1)
+PrimaryActionButton/colors/font_hover_color = Color(0.027451, 0.066667, 0.054902, 1)
+PrimaryActionButton/colors/font_pressed_color = Color(0.027451, 0.066667, 0.054902, 1)
+PrimaryActionButton/colors/font_disabled_color = Color(1, 1, 1, 1)
+PrimaryActionButton/font_sizes/font_size = 22
+PrimaryActionButton/styles/normal = SubResource("StyleBoxFlat_primary_default")
+PrimaryActionButton/styles/hover = SubResource("StyleBoxFlat_primary_default")
+PrimaryActionButton/styles/pressed = SubResource("StyleBoxFlat_primary_pressed")
+PrimaryActionButton/styles/disabled = SubResource("StyleBoxFlat_primary_disabled")
+PrimaryActionButton/styles/focus = SubResource("StyleBoxFlat_primary_focus")
+
+DangerActionButton/base_type = &"Button"
+DangerActionButton/colors/font_color = Color(1, 1, 1, 1)
+DangerActionButton/colors/font_focus_color = Color(1, 1, 1, 1)
+DangerActionButton/colors/font_hover_color = Color(1, 1, 1, 1)
+DangerActionButton/colors/font_pressed_color = Color(1, 1, 1, 1)
+DangerActionButton/colors/font_disabled_color = Color(1, 1, 1, 1)
+DangerActionButton/font_sizes/font_size = 22
+DangerActionButton/styles/normal = SubResource("StyleBoxFlat_danger_default")
+DangerActionButton/styles/hover = SubResource("StyleBoxFlat_danger_default")
+DangerActionButton/styles/pressed = SubResource("StyleBoxFlat_danger_pressed")
+DangerActionButton/styles/disabled = SubResource("StyleBoxFlat_primary_disabled")
+DangerActionButton/styles/focus = SubResource("StyleBoxFlat_danger_focus")
+
+CardFacePanel/base_type = &"PanelContainer"
+CardFacePanel/styles/panel = SubResource("StyleBoxFlat_card_face")
+
+Tokens/colors/bg_panel = Color(0.043137, 0.113725, 0.094118, 1)
+Tokens/colors/action_primary = Color(0.960784, 0.725490, 0.258824, 1)
+Tokens/colors/action_primary_pressed = Color(0.768627, 0.529412, 0.105882, 1)
+Tokens/colors/action_disabled = Color(0.435294, 0.501961, 0.470588, 1)
+Tokens/colors/action_danger = Color(0.878431, 0.352941, 0.352941, 1)
+Tokens/colors/action_danger_pressed = Color(0.658824, 0.235294, 0.262745, 1)
+Tokens/colors/text_primary = Color(1, 1, 1, 1)
+Tokens/colors/text_on_action = Color(0.027451, 0.066667, 0.054902, 1)
+Tokens/colors/text_on_danger = Color(1, 1, 1, 1)
+Tokens/colors/border_subtle = Color(0.066667, 0.329412, 0.262745, 1)
+Tokens/colors/focus = Color(0.274510, 0.901961, 0.823529, 1)
+Tokens/colors/card_face = Color(1, 1, 1, 1)
+Tokens/colors/card_border = Color(0.682353, 0.733333, 0.709804, 1)
+Tokens/colors/card_suit_red = Color(0.878431, 0.352941, 0.352941, 1)
+Tokens/colors/card_suit_black = Color(0.027451, 0.066667, 0.054902, 1)
+Tokens/constants/space_3 = 12
+Tokens/constants/space_4 = 16
+Tokens/constants/space_6 = 24
+Tokens/constants/radius_medium = 16
+Tokens/constants/radius_large = 28
+Tokens/constants/stroke_thin = 1
+Tokens/constants/stroke_regular = 2
+Tokens/constants/action_button_font_size = 22
+Tokens/constants/action_button_width = 210
+Tokens/constants/action_button_height = 64
+Tokens/constants/card_rank_font_size = 30
+Tokens/constants/card_corner_suit_font_size = 20
+Tokens/constants/card_center_suit_font_size = 58
+Tokens/constants/card_upright_width = 136
+Tokens/constants/card_upright_height = 190
+Tokens/constants/card_landscape_width = 190
+Tokens/constants/card_landscape_height = 136

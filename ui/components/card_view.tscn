@@ -1,0 +1,36 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/components/card_view.gd" id="1"]
+[ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="2"]
+
+[node name="CardFaceView" type="PanelContainer"]
+theme = ExtResource("2")
+theme_type_variation = &"CardFacePanel"
+script = ExtResource("1")
+suit = 0
+orientation = 0
+rank = "A"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+alignment = 0
+
+[node name="CornerBox" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="RankLabel" type="Label" parent="VBoxContainer/CornerBox"]
+layout_mode = 2
+text = "A"
+
+[node name="CornerSuitLabel" type="Label" parent="VBoxContainer/CornerBox"]
+layout_mode = 2
+text = "♣"
+
+[node name="CenterBox" type="CenterContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CenterSuitLabel" type="Label" parent="VBoxContainer/CenterBox"]
+layout_mode = 2
+text = "♣"
