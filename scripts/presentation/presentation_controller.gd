@@ -67,7 +67,7 @@ func begin_deal_presentation(round_id: String) -> bool:
 		return false
 	if not _controller.deal(round_id):
 		return false
-	_begin_presentation(&"DEAL_CARD", _fallback_ms_deal_card)
+	_begin_presentation(&"DEAL_CARD", _fallback_ms_deal_card, round_id)
 	return true
 
 
@@ -88,7 +88,7 @@ func begin_dealer_hole_reveal_presentation() -> bool:
 	var latest_event: RoundEvent = events_after[events_after.size() - 1]
 	if latest_event.event_id != RoundEvent.DEALER_HOLE_CARD_REVEALED:
 		return false
-	_begin_presentation(&"DEALER_HOLE_REVEAL", _fallback_ms_dealer_hole_reveal)
+	_begin_presentation(&"DEALER_HOLE_REVEAL", _fallback_ms_dealer_hole_reveal, _current_round_id())
 	return true
 
 
@@ -129,9 +129,25 @@ func override_fallback_ms_for_test(ms: int) -> void:
 	_fallback_ms_dealer_hole_reveal = ms
 
 
-func _begin_presentation(kind: StringName, fallback_ms: int) -> void:
+## Tokens are only guaranteed unique for the lifetime of this
+## PresentationController instance (`_token_sequence` is per-instance state).
+## RoundController's `_used_presentation_tokens` guard never clears, not even
+## across NEXT_ROUND (see tests/core/test_round_controller.gd
+## test_begin_presentation_rejects_a_token_reused_across_a_next_round_boundary),
+## so a fresh instance's counter restarting at 0 would otherwise collide with
+## a token already burned by a previous instance on the same RoundController
+## (e.g. this node destroyed and recreated between rounds). round_id is
+## already unique per round by construction (RoundController.deal() requires
+## a caller-supplied round_id), so folding it into the token closes that gap
+## without requiring any cross-instance coordination.
+func _current_round_id() -> String:
+	var metadata := _controller.round_metadata()
+	return metadata.round_id if metadata != null else ""
+
+
+func _begin_presentation(kind: StringName, fallback_ms: int, round_id: String) -> void:
 	_token_sequence += 1
-	var token := "%s-%d" % [kind, _token_sequence]
+	var token := "%s-%s-%d" % [round_id, kind, _token_sequence]
 	if not _controller.begin_presentation(token):
 		push_error(
 			"PresentationController: begin_presentation rejected for %s (%s)" % [
@@ -158,7 +174,11 @@ func _complete(token: String, via_fallback: bool) -> bool:
 	if _fallback_timer != null:
 		_fallback_timer.stop()
 	_active_token = ""
-	_active_kind = &""
+	# _active_kind is deliberately NOT cleared here: `_active_token.is_empty()`
+	# is the sole "no presentation is active" signal used elsewhere in this
+	# class. Keeping the last-known kind means a late/mismatched completion
+	# arriving after this one still reports which presentation it was late
+	# for in its diagnostic signal, instead of an uninformative "".
 	_set_action_bar_disabled(false)
 	_sync_action_bar_with_legal_actions()
 	presentation_completed.emit(kind, token, via_fallback)

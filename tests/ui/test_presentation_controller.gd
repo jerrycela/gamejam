@@ -234,6 +234,75 @@ func test_fallback_timer_actually_fires_and_completes_the_presentation() -> void
 	assert_bool(controller.legal_actions().is_empty()).is_false()
 
 
+## Reproduces the exact failure team-lead flagged: a PresentationController
+## instance is destroyed and a fresh one created for the next round (its
+## _token_sequence counter restarts at 0), while the SAME RoundController
+## (and its lifetime-scoped _used_presentation_tokens history) survives.
+## Without round_id baked into the token, the second instance's first token
+## for a given kind collides with the first instance's already-burned token
+## of the same kind, begin_presentation is silently rejected, and the round
+## proceeds with no input barrier at all.
+func test_recreating_presentation_controller_across_a_round_boundary_does_not_collide_with_a_burned_token() -> void:
+	var controller := _make_controller()
+	var first_presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(first_presentation)
+	first_presentation.setup(controller, null)
+	assert_bool(controller.place_bet(100)).is_true()
+	assert_bool(first_presentation.begin_deal_presentation("round-A")).is_true()
+	assert_bool(
+		first_presentation.notify_presentation_finished(first_presentation.active_token())
+	).is_true()
+
+	# Drive round A to ROUND_END without going through PresentationController
+	# (STAND/dealer resolution aren't registered blocking events in this spec).
+	assert_bool(controller.stand()).is_true()
+	assert_bool(controller.dealer_step()).is_true()  # reveals the hole card
+	# Shoe is exhausted (all 4 injected cards were drawn during deal()): the
+	# next hit attempt fails and dealer_step() itself returns false, but it
+	# still aborts the round to ROUND_END internally.
+	assert_bool(controller.dealer_step()).is_false()
+	assert_int(controller.current_state).is_equal(RoundController.State.ROUND_END)
+	assert_bool(controller.next_round("shoe-round-b", 7)).is_true()
+	assert_bool(controller.place_bet(100)).is_true()
+
+	# A brand-new PresentationController for round B — fresh _token_sequence.
+	var second_presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(second_presentation)
+	second_presentation.setup(controller, null)
+
+	second_presentation.begin_deal_presentation("round-B")
+
+	# The real proof isn't just "token non-empty" — it's that the input
+	# barrier is genuinely active. Under the bug, core's begin_presentation
+	# silently rejects the reused token, core's active token stays empty, and
+	# legal_actions() returns the full PLAYER_TURN action list instead of [].
+	assert_array(controller.legal_actions()).is_empty()
+	assert_str(second_presentation.active_token()).is_not_equal("")
+
+
+func test_late_completion_diagnostic_reports_the_kind_it_was_late_for() -> void:
+	var presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(presentation)
+	var controller := _make_controller()
+	presentation.setup(controller, null)
+	assert_bool(controller.place_bet(100)).is_true()
+	presentation.begin_deal_presentation("round-diagnostic")
+	var original_token := presentation.active_token()
+	presentation.force_fallback_timeout_for_test()
+	monitor_signals(presentation)
+
+	presentation.notify_presentation_finished(original_token)
+
+	# Diagnostics are most needed exactly when something arrives late — the
+	# signal must still say which presentation it was late for, not "".
+	assert_signal(presentation).is_emitted(
+		"presentation_completion_rejected",
+		&"DEAL_CARD",
+		original_token,
+		RoundController.ERROR_PRESENTATION_TOKEN_MISMATCH,
+	)
+
+
 func _round_controller_action_id(button_action: int) -> StringName:
 	match button_action:
 		ActionButtonView.Action.HIT:
