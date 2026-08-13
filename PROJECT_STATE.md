@@ -44,7 +44,7 @@
 ## Pending Decisions
 
 - 待立獨立 spec：progression content、內容尺度、final art style（見 `AGENTS.md` §9）。L3 目前只有中性佔位（`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`），無 progression 內容。
-- `docs/plans/2026-08-13-doc06-asset-structure-revision.md` 提案待人工核准：荷官與背景素材拆分、anti-infographic 規則改為產出後檢核清單。目前狀態：**待核准**，尚未生效。
+- ~~`docs/plans/2026-08-13-doc06-asset-structure-revision.md` 提案待核准~~ → **已核准並套用**（2026-08-13，經使用者授權由 team-lead 核准，非使用者本人逐行審閱）。`docs/06` 已整份改寫反映拆分後的素材結構，該提案 Status 為 `APPROVED`。
 
 ## Implemented
 
@@ -85,7 +85,7 @@
 - [ ] P2 - `scenes/game_root.tscn` 內 L1 子節點目前使用固定 `offset_left`/`offset_top` 像素座標（實測：`game_root.tscn` 內 28 處 `offset_*`），違反 `docs/01_GAME_AND_LAYER_SPEC.md:29`「必須使用 anchors、containers 與安全區設計，不能依賴固定座標」→ 修正中，屬 `specs/003` `L1-5`（多視窗尺寸 QA）的前置條件，尚未動工。
 - [ ] P2 - `scripts/core/round_controller.gd` 是 `RefCounted`，無法直接掛為場景節點腳本，需要 Node 適配器才能讓 `PresentationController` 等場景節點透過正常 scene-tree wiring 取得引用 → 刻意不改 core（維持純邏輯可 headless 測試的邊界）；`scripts/presentation/round_controller_node.gd` 為此適配器，**進行中、尚未 commit**，其對應測試 `tests/ui/test_round_controller_node.gd` 於本次查核時已 3/3 pass。
 - [ ] P2 - 專案未內嵌 Inter 字型；`ui/theme/lsbj_theme.tres` 的字級（size／line-height）結構已依 Figma token 建立，但字族在 runtime 回退到 Godot 預設字型，非 Inter → 待補字型檔並在 Theme 綁定。
-- [ ] P2 - `docs/plans/2026-08-13-doc06-asset-structure-revision.md`（荷官與背景素材拆分、anti-infographic 規則改為產出後檢核清單）提案**待人工核准**，尚未生效，不可假設已採用該修訂後的資產結構規則。
+- [x] P2 - `docs/plans/2026-08-13-doc06-asset-structure-revision.md`（荷官與背景素材拆分、anti-infographic 規則改為產出後檢核清單）→ **已核准並套用至 `docs/06`**（2026-08-13，授權核准）。拆分後的素材結構規則**現已生效**，可依此產出與核對素材。
 - [ ] P1 - **gdUnit4 測試會靜默消失**：當某個測試失敗時，**同一檔案內順序上緊接其後的測試**可能同時從 discovery 與執行中被丟棄——無錯誤訊息、無 orphan 報告，只有統計數字變少。2026-08-13 觀察到兩次獨立事件：第一次伴隨手動 `signal.connect(func(...))` lambda（改用 `monitor_signals()`／`assert_signal()` 後該次不再發生）；**第二次完全沒有手動 lambda**，在一次 mutation check 中同檔案其餘 3 個測試一起消失。因此**觸發條件是「失敗相鄰性」而非 lambda 寫法**，範圍比初次記錄時所推測的更廣。
   **風險**：一個 RED 測試會遮蔽同檔案後續的 RED 測試，導致失敗數被低報，而 TDD 的 RED 階段正是最依賴失敗數正確的時候；唯一症狀是一個沒人有理由複查的數字。
   **緩解**：(1) 每輪跑完核對測試總數是否等於預期值（基準數 + 新增數），不要只看「0 failures」；(2) 做 mutation check 時，預期失敗數若少於推算值，先懷疑有測試被吞掉而非測試無效；(3) 仍建議用 `monitor_signals()`／`assert_signal()` 而非手寫 lambda（雖非根因，但可減少一個變因）。

@@ -145,7 +145,7 @@ Requirements:
 Output one clean background plate only, opaque, no alpha channel required.
 ```
 
-Asset ID：`L3_ROOM_BG_V001`（`.png`，1080×1920，不透明）。
+Asset ID：`L3_ROOM_BG_V001`（`.png`，**實際 720×1280**，9:16，不透明）。註：1080×1920 是 `docs/01_GAME_AND_LAYER_SPEC.md:17-30` 的參考畫布基準，非本素材的實際像素尺寸；Godot 端以 `TextureRect` 的 `STRETCH_KEEP_ASPECT_COVERED` 縮放填滿畫布，不做像素對像素貼合。
 
 ### 5b. L3 Dealer Idle Reference（餵給 `DealerIdleView`）
 

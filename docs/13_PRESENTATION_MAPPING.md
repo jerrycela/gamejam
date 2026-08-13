@@ -19,6 +19,14 @@
 
 四張連續發牌的逾時上限高於單張翻牌，因為該演出本身較長。
 
+### 2.1 其他演出時序常數（非 blocking event，但影響玩家所見）
+
+下列常數不屬於 `specs/003` 定義的「2 blocking + 1 non-blocking」事件計數，但它們是真實執行、會影響畫面停留時間的時序值，依 §1 的「表與常數為同一份契約的兩面」原則一併登記：
+
+| 用途 | 值 | 程式碼常數 | 依據 |
+|---|---|---|---|
+| 素材載入失敗時 fallback 視覺的最短展示時長 | `400` ms | `PresentationController.FALLBACK_VISUAL_DWELL_MS` | `docs/03_INTERACTION_CONTRACTS.md:142-149` 要求失敗時改用文字／簡單 Tween 替代呈現並在有限時間內送出 `presentation_finished`。若不設停留時間，fallback 文字會在同一幀出現又消失，等同沒有替代呈現。400ms 遠低於上表兩個逾時上限（1200／1500），不會延後 completion 到超過契約時限。 |
+
 ## 3. 範圍
 
 本表目前只登記 `specs/003` 範圍內的 2 個 blocking 與 1 個 non-blocking 事件。
@@ -35,3 +43,4 @@
 | 日期 | 查核方式 | 結果 |
 |---|---|---|
 | 2026-08-13 | 直接讀 `scripts/presentation/presentation_controller.gd:23-24` | `FALLBACK_DEAL_CARD_MS = 1500`、`FALLBACK_DEALER_HOLE_REVEAL_MS = 1200`，與本表一致。兩者皆為 `const`，非散落的 magic number。 |
+| 2026-08-13 | 獨立唯讀稽核，逐行核對 `presentation_controller.gd` 全部 `const` 與本表 | **發現漂移並已修正**：`FALLBACK_VISUAL_DWELL_MS = 400`（`:34`，於 `:143` 實際被 `_start_fallback_visual_timer()` 使用，非死碼）在本檔建立當日即被加入程式碼，但未登記於本表。已補入 §2.1。<br>**教訓**：本檔 §1 自訂「表與常數為同一份契約的兩面」的規則，卻在建立當天就違反自己的規則——原因是新常數不屬於 §2 的「blocking event」分類，登記時沒有它的位置。§2.1 即為此類常數而設。人工維護的鏡像沒有機制保證同步，只靠規則宣告不足；新增任何影響玩家所見時序的 `const` 時必須主動回頭核對本表。 |
