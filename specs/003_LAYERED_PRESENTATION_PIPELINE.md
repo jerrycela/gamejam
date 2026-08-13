@@ -2,7 +2,7 @@
 
 Status: DRAFT
 
-Version: 0.2.0
+Version: 0.2.1
 
 ## Goal
 
@@ -42,7 +42,7 @@ Version: 0.2.0
 1. Figma component 必須先在 `pingliu@cela-tech.com`（`CELA International Corp.`，Full 席位，`docs/12_FIGMA_COMPONENT_MANIFEST.md:17`）帳號下的 design file `vufbRMFF4rpBt6W1jedHxb` 中建立、標註 Stable ID 並取得 Human Visual Approval，才能進入 Godot 同步。
 2. Godot 端對應 scene 必須是 `docs/05_FIGMA_TO_GODOT.md:66-74` 列出的獨立 `.tscn`，文字一律用 `Label`／`RichTextLabel`（`docs/05_FIGMA_TO_GODOT.md:116-119`），不得把文字烙進圖片。
 3. 完整畫面必須是 `docs/05_FIGMA_TO_GODOT.md:29-51` 定義的 scene tree 組合，不可用單一整張圖／單一 `TextureRect` 覆蓋畫面。
-4. Component Manifest（`docs/12_FIGMA_COMPONENT_MANIFEST.md`）每個進入本規格範圍的元件都要填實 `figma_node_id`、`approved_version`、`godot_scene`、`last_reviewed`，`status` 由 `PENDING_CREATE` 更新為已同步。
+4. Component Manifest（`docs/12_FIGMA_COMPONENT_MANIFEST.md`）每個進入本規格範圍的元件都要填實 `figma_node_id`、`approved_version`、`godot_scene`、`last_reviewed`，`status` 由目前現況（`PENDING_CREATE`／`HUMAN_APPROVAL_REQUIRED`）更新為已同步版本，非全部從 `PENDING_CREATE` 起算——`BTN_ACTION`、`BTN_DEAL`、`CARD_FACE` 在 Figma 端已有既有進度，見「本規格的 Figma 元件範圍」。
 
 ### 本規格的 Figma 元件範圍
 
@@ -51,7 +51,7 @@ Version: 0.2.0
 | component_id | 對應的 Mapping Strategy 路徑 | 選擇理由 |
 |---|---|---|
 | `BTN_ACTION` | Variant → Theme type variation | Figma 端已由先前 Codex 工作建立（node `5:2`，`Action × State` 16 個 symbol），現由 `figma-slice` 進行 Visual Review Gate 驗收（非新建）；`Action × State` 兩軸 variant 是本專案唯一需要 Theme type variation 的互動元件，銜接既有進度而非重做 |
-| `CARD_FACE` | Color/Typography variable → Theme resource（花色色彩、點數字型） | Figma 端已有實體（`05 Card` page，`Suit × Orientation` 8 個 symbol），manifest 尚待回填 node id 與審核狀態，非從零開始；`Suit × Rank × Orientation` 是本專案唯一需要「同一 scene、大量 variant 組合」的元件，能驗證 Theme resource 而非逐一 hardcode |
+| `CARD_FACE` | Color/Typography variable → Theme resource（花色色彩、點數字型） | Figma 端已有實體（node `11:84`，`05 Card` page），manifest 尚待回填 node id 與審核狀態，非從零開始；結構為 `Suit`(4) × `Orientation`(2) = 8 個 variant symbol，`Rank` 是 component 的 TEXT property、不是 variant 軸（若 Rank 也做成 variant 會是 4×13×2=104 組合，Figma 端刻意避開）；`Suit × Orientation` variant 加上 `Rank` text property 的組合，是本專案唯一需要「同一 scene、Theme variant 與動態文字並存」的元件，能驗證 Theme resource 而非逐一 hardcode |
 | `PANEL_ACTION_BAR` | Auto Layout → `Container` | 目錄中唯一以「排列其他元件」為核心語意的元件（`docs/04_VISUAL_ENGINEERING_FIGMA.md:136`），是驗證 Figma Auto Layout 對應 Godot `Container`/anchors 而非逐一手動定位的唯一候選；同時直接對應 `docs/09_TEST_AND_ACCEPTANCE.md:116` 的「Button state reflects legal actions」L1 QA 項目 |
 | `VALUE_TOTAL` | Dynamic text → `Label` | `Soft/Hard/Bust` variant 同時牽動文字內容與 `color.result.*` token 切換，是目錄中「動態文字＋動態顏色 token」耦合最緊的元件，比 `VALUE_CHIPS`／`VALUE_BET`（純數字）更能驗證 Dynamic text 路徑 |
 
@@ -125,7 +125,7 @@ Version: 0.2.0
 - 4 個以外的其餘 7 個 Figma 元件（`BTN_DEAL`、`CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`）。
 - Split / Insurance 相關的任何 L1/L2/L3 呈現。
 - 除本規格「L2 Behavior」表列的 2 個 blocking 與 1 個 non-blocking event 之外，其餘 `docs/03_INTERACTION_CONTRACTS.md` §4 事件的 mapping／fallback 數值製作（可沿用既有 placeholder，但不要求本規格新驗收）。
-- `fallback_duration_ms` 與其餘尚未訂定的演出節奏數值本身（見 Open Questions）。
+- 本規格「L2 Behavior」表列 2 個 blocking event 以外，其餘尚未訂定的演出節奏數值（本規格範圍內的 `fallback_duration_ms` 已裁決，見 Open Questions #1）。
 
 ## Acceptance Criteria
 
@@ -162,9 +162,11 @@ Version: 0.2.0
 
 ## Open Questions
 
-以下事項需要使用者拍板，本規格刻意不代為決定：
+以下 4 項在起草時列為待拍板事項，已由專案負責人裁決；保留理由與依據，供實作階段追溯，不再視為 open：
 
-1. **`fallback_duration_ms` 數值**（deal card 與 dealer hole card reveal 兩個 blocking event）：`docs/03_INTERACTION_CONTRACTS.md` 只定義機制，未給預設數值；這是演出節奏判斷，依 `AGENTS.md` §9 No-Guessing 精神本規格不猜測。`SPEC REQUIRED`。
-2. **`narrow_portrait` / `wide_portrait` 的實際像素尺寸**：`docs/09_TEST_AND_ACCEPTANCE.md:151-159` 與 `docs/05_FIGMA_TO_GODOT.md:161` 都只提到「至少 reference、較窄、較寬三種 viewport」，未給出具體數字。`SPEC REQUIRED`，需要確認後才能讓 `L1-5` 可機器核對。
-3. **`L3-3` 的「正確 loop 狀態」判準**：本規格要求 L2 overlay 結束後 L3 loop 恢復，但目前佔位階段尚無 progression 狀態定義，「正確狀態」暫以「overlay 前後同一個 loop 旗標／同一個 idle 動畫」為最小判準；若後續 progression spec 引入多重 L3 狀態，此判準需要重新定義。目前先照最小判準寫測試，供使用者確認是否足夠。
-4. 其餘 7 個 Figma 元件（`BTN_DEAL`、`CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`）是否／何時要納入下一個 spec，或是否本規格證明管線成立後就足夠、其餘元件等正式美術階段再做——需要使用者決定範圍，本規格不預設。
+### 已裁決事項
+
+1. **`fallback_duration_ms` 數值**（deal card 與 dealer hole card reveal 兩個 blocking event）——裁決：deal card = `1500`，dealer hole card reveal = `1200`。理由：`fallback_duration_ms` 是逾時上限（安全網），不是動畫時長，作用是保證演出卡住或素材失敗時 HOLD 一定會解除；定值原則為「明顯高於預期演出時間，但低於玩家會認為當機的時間」，四張連續發牌演出比單張翻牌長故給較大值。實作階段若實測演出時間逼近上限應調高而非縮短動畫，遠低於上限則可回頭收斂；已寫入「L2 Behavior」#3 表格與說明。
+2. **`narrow_portrait` / `wide_portrait` 實際像素尺寸**——裁決：`reference_1080x1920` = `1080 × 1920`（9:16，`docs/01_GAME_AND_LAYER_SPEC.md:17-30` 既有基準）、`narrow_portrait` = `1080 × 2400`（20:9，現代長螢幕手機，壓測上下貼邊元件被拉開或裁切）、`wide_portrait` = `1200 × 1600`（3:4，平板直式，壓測中央讓給 L3 的留白塌陷或操作列過度拉寬）。理由：三個尺寸各自針對一種失效模式而非任意取值；截圖解析度固定後 `L1-5` 可機器核對，已寫入「Acceptance Criteria」`L1-5`。
+3. **`L3-3` 的「正確 loop 狀態」判準**——裁決：採最小判準（overlay 前後同一個 loop 旗標／同一個 idle 動畫）。理由：目前 L3 只有中性 placeholder、無 progression 狀態，更嚴格的判準無對象可測；此判準綁定於「單一 L3 狀態」的前提，後續 progression spec 引入多重 L3 狀態時必須重新定義，不可直接沿用——已寫入「L3 Behavior」#6 與 `L3-3`。
+4. **其餘 7 個 Figma 元件**（`BTN_DEAL`、`CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`）——裁決：維持不在本規格範圍。理由：本規格目的是證明管線成立、不是完成視覺，管線一旦證明成立，其餘 7 個元件是重複勞動、風險低，可用單一後續 spec 一次涵蓋；其中 `BTN_DEAL` 已在 Figma 建立（node `9:17`，`DRAFT`／`HUMAN_APPROVAL_REQUIRED`），其餘 6 個仍為 `PENDING_CREATE`。本規格通過後，其餘 7 個元件由後續 spec 一次納入，**非永久排除**。
