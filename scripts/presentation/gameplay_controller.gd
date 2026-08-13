@@ -34,6 +34,28 @@ extends Node
 
 const CARD_SCENE: PackedScene = preload("res://ui/components/card_view.tscn")
 
+## L2 item 1 (逐張發牌): the four initial cards no longer snap onto the
+## table as a single instant render — each one fades and scales in,
+## staggered, so dealing reads as a sequence of four small events instead
+## of one flat state change. This is purely a visual entrance played on
+## top of state RoundController already committed synchronously inside
+## deal() (docs/03_INTERACTION_CONTRACTS.md:136 — this never decides
+## anything, it only plays after the fact); the FINAL card identities/
+## face-down flags rendered here are read from RoundController.events(),
+## the same authoritative source _known_dealer_cards() already trusted.
+##
+## Worst case timing (last of 4 cards): 3 × DEAL_CARD_ANIMATION_STAGGER_MS
+## + DEAL_CARD_ANIMATION_TWEEN_MS = 450 + 180 = 630ms — comfortably inside
+## PresentationController.DEAL_CARD_PRESENTATION_DWELL_MS (700ms), which
+## exists purely as this animation's own safety net (see that constant's
+## docstring). Named/colocated per docs/13 §2.1 (no scattered magic
+## numbers) — mirror pair below (_deal_card_stagger_ms/_deal_card_tween_ms)
+## exists only for override_deal_card_animation_timing_for_test(), the same
+## pattern PresentationController uses for override_fallback_ms_for_test().
+const DEAL_CARD_ANIMATION_STAGGER_MS: int = 150
+const DEAL_CARD_ANIMATION_TWEEN_MS: int = 180
+const DEAL_CARD_ANIMATION_ENTRANCE_SCALE: float = 0.55
+
 const _RANK_STRINGS := {
 	Card.Rank.ACE: "A",
 	Card.Rank.JACK: "J",
@@ -95,6 +117,12 @@ var _result_banner: Label = null
 var _dealer_idle_view: DealerIdleView = null
 var _dealer_reaction_view: DealerReactionView = null
 
+# Overridable only through override_deal_card_animation_timing_for_test();
+# production code must always read DEAL_CARD_ANIMATION_STAGGER_MS/
+# DEAL_CARD_ANIMATION_TWEEN_MS.
+var _deal_card_stagger_ms: int = DEAL_CARD_ANIMATION_STAGGER_MS
+var _deal_card_tween_ms: int = DEAL_CARD_ANIMATION_TWEEN_MS
+
 
 ## `ledger` is the same BetLedger instance the caller constructed
 ## RoundController with — RoundController itself exposes no public
@@ -132,6 +160,8 @@ func setup(
 		_action_bar.action_requested.connect(_on_action_requested)
 	if not _presentation.presentation_completed.is_connected(_on_presentation_completed):
 		_presentation.presentation_completed.connect(_on_presentation_completed)
+	if not _presentation.presentation_started.is_connected(_on_presentation_started):
+		_presentation.presentation_started.connect(_on_presentation_started)
 
 	refresh()
 	_action_bar.sync_with_legal_actions(_controller.legal_actions())
@@ -198,6 +228,122 @@ func _on_action_requested(action_id: StringName) -> void:
 		RoundController.ACTION_SURRENDER:
 			_controller.surrender()
 			_after_player_action()
+
+
+## Fires the instant a blocking presentation opens (docs/03 §3's "P->>M:
+## started" arrow) — this is where the entrance animation for DEAL_CARD
+## actually starts, well before completion. DEALER_HOLE_REVEAL and any
+## other kind are left alone here (out of this batch's scope).
+func _on_presentation_started(kind: StringName, token: String) -> void:
+	if kind == &"DEAL_CARD":
+		_play_deal_card_animation(token)
+
+
+## Renders the four initial cards face-up/face-down exactly as
+## _render_hands() eventually would, but starting fully transparent and
+## scaled down, then tweens each one in, staggered by _deal_card_stagger_ms
+## per card in real deal order (docs/03 sequence: player, dealer upcard,
+## player, dealer hole). The event stream (not snapshot()) is the source
+## for the same secrecy reason _known_dealer_cards() already documents —
+## event.card is null for the hole card, so this never has its real
+## identity to leak even by accident.
+##
+## Interruption safety (specs/003's exactly-once guard / "動畫不可阻擋"):
+## this does NOT own completion beyond starting it. Every card's Tween is
+## created via view.create_tween(), which Godot auto-binds to and kills
+## with that view — so if the fallback or dwell safety net completes the
+## presentation first, _on_presentation_completed()'s refresh() call below
+## clears and rebuilds both hand containers from scratch, freeing every
+## in-flight card (and its tween, including the last card's finish
+## callback) before it can do anything.
+func _play_deal_card_animation(token: String) -> void:
+	_clear_hand_view(_player_hand_view)
+	_clear_hand_view(_dealer_hand_view)
+	var entries := _initial_deal_events_in_order()
+	for i in entries.size():
+		var event: RoundEvent = entries[i]
+		var face_down := event.card == null
+		var view := _make_card_view(event.card, face_down)
+		var parent := _player_hand_view if event.hand_owner == RoundEvent.HAND_PLAYER else _dealer_hand_view
+		parent.add_child(view)
+		view.modulate.a = 0.0
+		view.scale = Vector2(DEAL_CARD_ANIMATION_ENTRANCE_SCALE, DEAL_CARD_ANIMATION_ENTRANCE_SCALE)
+
+		var dur_sec := maxf(0.001, _deal_card_tween_ms / 1000.0)
+		var tween := view.create_tween()
+		tween.tween_interval(_deal_card_delay_sec(i))
+		tween.set_parallel(true)
+		tween.tween_property(view, "modulate:a", 1.0, dur_sec)
+		tween.tween_property(view, "scale", Vector2.ONE, dur_sec).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if i == entries.size() - 1:
+			tween.chain().tween_callback(_finish_deal_card_animation.bind(token))
+
+
+## The animation's own "M-->>P: finished" call — same public entry point a
+## click-driven completion or a real future asset-backed animation would
+## use. Guarded by active_token() match so a fallback/dwell timeout that
+## already completed (and already froze this token) can never be answered
+## twice; without freed-tween cancellation above this guard would still be
+## needed on its own, so it stays as defense in depth.
+func _finish_deal_card_animation(token: String) -> void:
+	if _presentation.active_token() != token:
+		return
+	_presentation.notify_presentation_finished(token)
+
+
+## Test seam: same idea as PresentationController's force_*_for_test()
+## methods — lets a synchronous test finish the deal entrance animation
+## without waiting on real Tween processing (GdUnit test bodies run
+## synchronously; a Tween never advances until a frame is actually
+## processed).
+func force_deal_card_animation_finished_for_test() -> void:
+	_finish_deal_card_animation(_presentation.active_token())
+
+
+## Test seam: shortens the animation's own timing so a real Tween-driven
+## test can finish quickly. Never used by production wiring — mirrors
+## PresentationController.override_presentation_dwell_ms_for_test().
+func override_deal_card_animation_timing_for_test(stagger_ms: int, tween_ms: int) -> void:
+	_deal_card_stagger_ms = stagger_ms
+	_deal_card_tween_ms = tween_ms
+
+
+## Deliberately deterministic and wall-clock-free: this is the exact math
+## _play_deal_card_animation() feeds into tween_interval() for card index
+## `i` — asserting on this directly (tests/ui/test_gameplay_controller.gd's
+## ordering test) proves "card N starts strictly after card N-1" without
+## racing a real Tween against a fragile, headless-CI-sensitive partial
+## wall-clock wait (a real such wait for this exact scenario was tried and
+## was flaky under headless frame-delta jitter — see git history of this
+## file). The one genuine real-Tween, real-wall-clock proof this codebase
+## relies on is test_deal_card_animation_completes_the_presentation_via_a_real_tween,
+## which only asserts the *final* state, not a mid-flight snapshot.
+func _deal_card_delay_sec(index: int) -> float:
+	return (index * _deal_card_stagger_ms) / 1000.0
+
+
+## Test-facing wrapper for _deal_card_delay_sec(), in milliseconds (tests
+## read constants in ms elsewhere, e.g. override_deal_card_animation_timing_for_test()).
+func deal_card_delay_ms_for_test(index: int) -> int:
+	return roundi(_deal_card_delay_sec(index) * 1000.0)
+
+
+## The four RoundEvent.INITIAL_CARD_DEALT events for the current round, in
+## real deal order (player, dealer upcard, player, dealer hole) — the array
+## is already append-ordered by scripts/core/round_controller.gd's deal(),
+## so no separate sort is needed. round_id-scoped for the same reason
+## _known_dealer_cards() is: _events accumulates for the controller's whole
+## lifetime and is never cleared between rounds.
+func _initial_deal_events_in_order() -> Array[RoundEvent]:
+	var result: Array[RoundEvent] = []
+	var metadata := _controller.round_metadata()
+	var round_id := metadata.round_id if metadata != null else ""
+	if round_id.is_empty():
+		return result
+	for event in _controller.events():
+		if event.round_id == round_id and event.event_id == RoundEvent.INITIAL_CARD_DEALT:
+			result.append(event)
+	return result
 
 
 ## Minimal-viable betting (team-lead's ruling): commit MINIMUM_BET and go

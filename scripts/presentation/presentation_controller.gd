@@ -29,15 +29,25 @@ const FALLBACK_DEALER_HOLE_REVEAL_MS: int = 1200
 ## full FALLBACK_*_MS safety-net window before unblocking, even though
 ## there is no real animation yet to wait for (team-lead's soak test:
 ## barrier held exactly ~1504ms on every single deal, matching
-## FALLBACK_DEAL_CARD_MS to the millisecond). These dwell timers give the
-## player a short, deliberate pause — long enough to read that something
-## happened, far shorter than the safety net — then call
-## notify_presentation_finished() themselves: the same public entry point a
-## real future animation would call. FALLBACK_DEAL_CARD_MS/
-## FALLBACK_DEALER_HOLE_REVEAL_MS stay exactly as they were (1500/1200) —
-## they remain the safety net for a stuck/failed asset load, not the normal
-## timing; only the ceiling's *meaning* was wrong, not its value.
-const DEAL_CARD_PRESENTATION_DWELL_MS: int = 350
+## FALLBACK_DEAL_CARD_MS to the millisecond). These are now the *safety net
+## behind the real GameplayController-driven entrance animation*
+## (GameplayController._play_deal_card_animation()) rather than the normal
+## timing itself: the animation calls notify_presentation_finished() on its
+## own last card's tween finishing, which always stops this dwell timer
+## first (see _complete()) — under normal conditions this timer never
+## actually fires. DEAL_CARD_PRESENTATION_DWELL_MS (700ms) is sized just
+## above the deal animation's own worst-case envelope (4 cards × 150ms
+## stagger + 180ms tween ≈ 630ms — see GameplayController's
+## DEAL_CARD_ANIMATION_STAGGER_MS/DEAL_CARD_ANIMATION_TWEEN_MS) so a caller
+## with no real animation driver (e.g. a bare PresentationController used
+## without GameplayController) still unblocks promptly instead of riding
+## out the full 1500ms FALLBACK_DEAL_CARD_MS. DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS
+## stays 300ms for now — the hole-reveal flip animation is a later batch,
+## not this one. FALLBACK_DEAL_CARD_MS/FALLBACK_DEALER_HOLE_REVEAL_MS stay
+## exactly as they were (1500/1200) — they remain the outermost safety net
+## for a stuck/failed asset load, not the normal timing; only the dwell
+## ceiling's *meaning* was wrong, not the fallback values.
+const DEAL_CARD_PRESENTATION_DWELL_MS: int = 700
 const DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS: int = 300
 
 ## docs/03_INTERACTION_CONTRACTS.md:142-149 (Failure Fallback) step 2-3: on

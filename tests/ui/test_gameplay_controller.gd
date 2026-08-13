@@ -151,6 +151,95 @@ func test_completing_deal_presentation_renders_real_cards_and_hides_the_dealers_
 	assert_int(harness.action_bar.button_count()).is_equal(4)
 
 
+## L2 item 1 (逐張發牌): the instant presentation_started fires, all four
+## card views already exist in their hand containers (layout/child-count is
+## final immediately — no popping in later), but each one starts fully
+## transparent because its entrance Tween has been created but not yet
+## processed a single frame (GdUnit test bodies run synchronously; Tweens
+## only advance on _process). This is the deterministic, non-wall-clock
+## half of the "cards appear progressively, not all at once" proof.
+func test_deal_presentation_started_creates_all_four_cards_invisible_before_the_entrance_plays() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-anim-start")
+
+	harness.action_bar.deal_button().pressed.emit()
+
+	assert_int(harness.player_hand_view.get_child_count()).is_equal(2)
+	assert_int(harness.dealer_hand_view.get_child_count()).is_equal(2)
+	for child in harness.player_hand_view.get_children():
+		assert_float((child as CardFaceView).modulate.a).is_equal(0.0)
+	for child in harness.dealer_hand_view.get_children():
+		assert_float((child as CardFaceView).modulate.a).is_equal(0.0)
+
+
+## Test-seam parity with PresentationController's force_*_for_test(): proves
+## the synchronous finish path lands on the exact same final, fully-rendered
+## state test_completing_deal_presentation_renders_real_cards_and_hides_the_dealers_hole_card
+## already pins down for the (previously) synchronous notify path — animation
+## or not, the end state contract is unchanged.
+func test_force_deal_card_animation_finished_for_test_completes_the_presentation() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-anim-force")
+	harness.action_bar.deal_button().pressed.emit()
+
+	harness.gameplay.force_deal_card_animation_finished_for_test()
+
+	assert_str(harness.presentation.active_token()).is_equal("")
+	assert_int(harness.player_hand_view.get_child_count()).is_equal(2)
+	assert_int(harness.dealer_hand_view.get_child_count()).is_equal(2)
+	for child in harness.player_hand_view.get_children():
+		assert_float((child as CardFaceView).modulate.a).is_equal(1.0)
+	var dealer_hole := harness.dealer_hand_view.get_child(1) as CardFaceView
+	assert_bool(dealer_hole.face_down).is_true()
+	assert_int(harness.action_bar.button_count()).is_equal(4)
+
+
+## Genuine end-to-end confidence check (real Tween, real wall-clock wait —
+## same style as PresentationController's own real-Timer tests): with a
+## short overridden stagger/tween, the whole 4-card entrance plays out and
+## the *animation itself* (not the dwell safety net) completes the
+## presentation with via_fallback == false.
+func test_deal_card_animation_completes_the_presentation_via_a_real_tween() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-anim-realtween")
+	harness.gameplay.override_deal_card_animation_timing_for_test(10, 10)
+
+	harness.action_bar.deal_button().pressed.emit()
+	assert_str(harness.presentation.active_token()).is_not_equal("")
+
+	await get_tree().create_timer(0.3).timeout
+
+	assert_str(harness.presentation.active_token()).is_equal("")
+	for child in harness.player_hand_view.get_children():
+		assert_float((child as CardFaceView).modulate.a).is_equal(1.0)
+	assert_int(harness.action_bar.button_count()).is_equal(4)
+
+
+## Ordering proof: "第 N 張牌在第 N-1 張之後才可見" — checked structurally on
+## the exact per-card delay math _play_deal_card_animation() feeds into each
+## card's Tween, not by racing a real Tween against a fragile partial
+## wall-clock wait. (An earlier version of this test asserted a mid-flight
+## alpha snapshot after a short real-time wait; it was flaky under headless
+## CI frame-delta jitter — a single slow first frame could jump every
+## running Tween further than the intended checkpoint, all before this test
+## resumes from its own await. Deterministic math beats a race here.) The
+## real-Tween, real-wall-clock proof that this fires and completes
+## end-to-end lives in test_deal_card_animation_completes_the_presentation_via_a_real_tween.
+func test_deal_card_entrance_animation_schedules_each_card_strictly_after_the_previous_one() -> void:
+	var harness := _make_harness(_full_round_cards(), "shoe-gc-anim-order")
+	harness.gameplay.override_deal_card_animation_timing_for_test(150, 20)
+
+	var delay_0 := harness.gameplay.deal_card_delay_ms_for_test(0)
+	var delay_1 := harness.gameplay.deal_card_delay_ms_for_test(1)
+	var delay_2 := harness.gameplay.deal_card_delay_ms_for_test(2)
+	var delay_3 := harness.gameplay.deal_card_delay_ms_for_test(3)
+
+	assert_int(delay_0).is_equal(0)
+	assert_int(delay_1).is_greater(delay_0)
+	assert_int(delay_2).is_greater(delay_1)
+	assert_int(delay_3).is_greater(delay_2)
+	assert_int(delay_1).is_equal(150)
+	assert_int(delay_2).is_equal(300)
+	assert_int(delay_3).is_equal(450)
+
+
 func test_hit_button_press_draws_a_real_card_and_resyncs_the_action_bar() -> void:
 	var harness := _make_harness(_full_round_cards(), "shoe-gc-3")
 	harness.action_bar.deal_button().pressed.emit()

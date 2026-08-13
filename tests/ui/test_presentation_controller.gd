@@ -370,7 +370,11 @@ func test_deal_presentation_completes_via_the_normal_dwell_path_well_before_the_
 	var start_ms := Time.get_ticks_msec()
 	presentation.begin_deal_presentation("round-normal-dwell")
 
-	await get_tree().create_timer(0.6).timeout
+	# DEAL_CARD_PRESENTATION_DWELL_MS is 700ms (the safety net sized just
+	# above GameplayController's own ~630ms deal entrance animation
+	# envelope — see that constant's docstring), so this wait must clear
+	# 700ms, not just be "well before" the 1500ms fallback ceiling.
+	await get_tree().create_timer(0.9).timeout
 
 	var elapsed_ms := Time.get_ticks_msec() - start_ms
 	assert_str(presentation.active_token()).is_equal("")
