@@ -23,6 +23,20 @@ extends Node
 const FALLBACK_DEAL_CARD_MS: int = 1500
 const FALLBACK_DEALER_HOLE_REVEAL_MS: int = 1200
 
+## docs/03_INTERACTION_CONTRACTS.md:142-149 (Failure Fallback) step 2-3: on
+## asset load failure, show a text fallback for a bounded dwell, then
+## complete. 400ms is a judgment call (not a Figma motion token — `02
+## Foundations` only records discrete-transition durations far shorter than
+## a "let the player actually read this" dwell): long enough to be legible,
+## comfortably inside both registered fallback_duration_ms values (1200/1500)
+## so the overall presentation still resolves well within its own safety
+## net.
+const FALLBACK_VISUAL_DWELL_MS: int = 400
+
+## Deliberately generic/non-technical — docs/03:144 sends the asset ID to
+## the log (see report_asset_load_failure), never to the screen.
+const FALLBACK_VISUAL_TEXT: String = "One moment…"
+
 signal presentation_started(kind: StringName, token: String)
 signal presentation_completed(kind: StringName, token: String, via_fallback: bool)
 signal presentation_completion_rejected(kind: StringName, token: String, reason: StringName)
@@ -36,11 +50,15 @@ const _ACTION_ID_BY_BUTTON_ACTION := {
 
 var _controller: RoundController = null
 var _action_bar: Control = null
+var _fallback_overlay: Control = null
 
 var _token_sequence: int = 0
 var _active_token: String = ""
 var _active_kind: StringName = &""
 var _fallback_timer: Timer = null
+var _fallback_visual_timer: Timer = null
+var _fallback_label: Label = null
+var _pending_fallback_visual_token: String = ""
 
 # Overridable only through override_fallback_ms_for_test(); production code
 # must always read FALLBACK_DEAL_CARD_MS / FALLBACK_DEALER_HOLE_REVEAL_MS.
@@ -48,9 +66,18 @@ var _fallback_ms_deal_card: int = FALLBACK_DEAL_CARD_MS
 var _fallback_ms_dealer_hole_reveal: int = FALLBACK_DEALER_HOLE_REVEAL_MS
 
 
-func setup(round_controller: RoundController, action_bar: Control) -> void:
+## `fallback_overlay` is optional (specs/003 L2-4): the Control this
+## controller adds its fallback text Label into when
+## report_asset_load_failure() fires — the caller should pass one of
+## L2Root's own layers (ResultOverlay or DealerReactionLayer), matching
+## where a real dealer-reaction/result asset would otherwise have appeared.
+## Left null, the fallback path still logs and completes safely, it just
+## has nothing to show — existing callers that only pass 2 args are
+## unaffected.
+func setup(round_controller: RoundController, action_bar: Control, fallback_overlay: Control = null) -> void:
 	_controller = round_controller
 	_action_bar = action_bar
+	_fallback_overlay = fallback_overlay
 
 
 func active_token() -> String:
@@ -98,20 +125,22 @@ func notify_presentation_finished(token: String) -> bool:
 	return _complete(token, false)
 
 
-## docs/03_INTERACTION_CONTRACTS.md §8 Failure Fallback: log the failed
-## asset, then complete within bounded time instead of staying in HOLD
-## forever. This stub has no real text/Tween fallback visual yet (no asset
-## pipeline exists for that at this stage) — it only guarantees the safety
-## property: HOLD is never permanent.
+## docs/03_INTERACTION_CONTRACTS.md §8 Failure Fallback, all 4 steps: (1)
+## log the failed asset, (2) show a text fallback visual, (3) complete
+## within bounded time, (4) never stay in HOLD forever. The asset ID is only
+## ever logged here (push_warning) — it never reaches FALLBACK_VISUAL_TEXT,
+## which is fixed and generic on purpose (docs/03:144).
 func report_asset_load_failure(asset_id: String) -> void:
 	if _active_token.is_empty():
 		return
 	push_warning(
-		"PresentationController: asset load failed (%s) during %s (%s) — completing via fallback" % [
+		"PresentationController: asset load failed (%s) during %s (%s) — showing fallback visual" % [
 			asset_id, _active_kind, _active_token,
 		]
 	)
-	_complete(_active_token, true)
+	_show_fallback_visual()
+	_pending_fallback_visual_token = _active_token
+	_start_fallback_visual_timer(FALLBACK_VISUAL_DWELL_MS)
 
 
 ## Test seam: invokes exactly the same completion path a real Timer timeout
@@ -120,6 +149,25 @@ func report_asset_load_failure(asset_id: String) -> void:
 ## for a real-timer end-to-end check).
 func force_fallback_timeout_for_test() -> void:
 	_on_fallback_timeout()
+
+
+## Test seam: same idea as force_fallback_timeout_for_test(), for the
+## fallback *visual*'s own dwell timer (started by report_asset_load_failure()).
+func force_fallback_visual_dwell_elapsed_for_test() -> void:
+	_on_fallback_visual_dwell_elapsed()
+
+
+## True while the fallback text is on screen — from report_asset_load_failure()
+## until its dwell timer elapses (or, defensively, once _complete() runs at
+## all, in case some future caller drives completion by another path).
+func is_fallback_visual_visible() -> bool:
+	return _fallback_label != null and _fallback_label.visible
+
+
+## The currently-shown fallback text, or "" if none is showing. Test-facing;
+## production code never branches on this.
+func fallback_visual_text() -> String:
+	return _fallback_label.text if _fallback_label != null else ""
 
 
 ## Test seam: shortens both fallback windows so a real Timer-driven test can
@@ -200,6 +248,54 @@ func _start_fallback_timer(fallback_ms: int) -> void:
 	_fallback_timer.stop()
 	_fallback_timer.wait_time = maxf(0.001, fallback_ms / 1000.0)
 	_fallback_timer.start()
+
+
+## docs/03_INTERACTION_CONTRACTS.md:142-149 step 3: the fallback visual's own
+## dwell elapsing is what actually completes the presentation on this path
+## (report_asset_load_failure() only shows the visual and starts this timer).
+func _on_fallback_visual_dwell_elapsed() -> void:
+	var token := _pending_fallback_visual_token
+	_pending_fallback_visual_token = ""
+	_hide_fallback_visual()
+	if token.is_empty():
+		return
+	_complete(token, true)
+
+
+func _start_fallback_visual_timer(dwell_ms: int) -> void:
+	if _fallback_visual_timer == null:
+		_fallback_visual_timer = Timer.new()
+		_fallback_visual_timer.one_shot = true
+		_fallback_visual_timer.timeout.connect(_on_fallback_visual_dwell_elapsed)
+		add_child(_fallback_visual_timer)
+	_fallback_visual_timer.stop()
+	_fallback_visual_timer.wait_time = maxf(0.001, dwell_ms / 1000.0)
+	_fallback_visual_timer.start()
+
+
+## Creates (once) and shows the fallback Label inside `_fallback_overlay`.
+## Theme-driven (default_font_size / Label font_color already come from
+## res://ui/theme/lsbj_theme.tres via the overlay's inherited theme, docs/05
+## §5 Theme First) — no color/size literal is set here. No-op if setup()
+## was never given an overlay to draw into.
+func _show_fallback_visual() -> void:
+	if _fallback_overlay == null:
+		return
+	if _fallback_label == null:
+		_fallback_label = Label.new()
+		_fallback_label.name = "PresentationFallbackLabel"
+		_fallback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_fallback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_fallback_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fallback_overlay.add_child(_fallback_label)
+	_fallback_label.text = FALLBACK_VISUAL_TEXT
+	_fallback_label.visible = true
+
+
+func _hide_fallback_visual() -> void:
+	if _fallback_label != null:
+		_fallback_label.visible = false
 
 
 ## ActionBar.disabled = true (docs/03_INTERACTION_CONTRACTS.md:126) means

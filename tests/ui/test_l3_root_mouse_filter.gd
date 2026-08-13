@@ -23,12 +23,19 @@ func test_action_bar_button_keeps_default_mouse_filter_under_l3_overlay() -> voi
 	# under it) is set to IGNORE, while ActionBar's own buttons are left at
 	# Godot's default STOP filter, so nothing in the L3 subtree can be the
 	# reason a real click on ActionBar would fail to reach it.
+	##
+	## Checks the DealButtonView specifically, not a node named "HitButton" —
+	## GameBootstrap now wires+syncs the scene on load (tests/ui/test_game_bootstrap.gd),
+	## so the panel boots into BETTING's single DealButtonView, not the
+	## design-time HIT/STAND/DOUBLE/SURRENDER scaffold.
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
 	var table_ui := root.get_node("L1Root/TableUI") as Node
-	var hit_button := table_ui.find_child("HitButton", true, false) as Control
+	var action_bar := table_ui.find_child("ActionBar", true, false) as ActionBarView
+	var deal_button := action_bar.deal_button()
 
-	assert_int(hit_button.mouse_filter).is_not_equal(Control.MOUSE_FILTER_IGNORE)
+	assert_object(deal_button).is_not_null()
+	assert_int(deal_button.mouse_filter).is_not_equal(Control.MOUSE_FILTER_IGNORE)
 
 
 func _assert_subtree_ignores_mouse(node: Node) -> void:

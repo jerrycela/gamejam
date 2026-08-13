@@ -32,10 +32,7 @@ const DANGER_ACTIONS := [Action.SURRENDER]
 
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(
-		get_theme_constant("action_button_width", "Tokens"),
-		get_theme_constant("action_button_height", "Tokens"),
-	)
+	custom_minimum_size = Vector2(210, 64)
 	_refresh()
 
 

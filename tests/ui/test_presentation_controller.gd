@@ -199,6 +199,13 @@ func test_late_real_completion_after_fallback_already_unlocked_is_rejected_as_di
 
 
 func test_asset_load_failure_completes_the_presentation_within_bounded_time_instead_of_permanent_hold() -> void:
+	# specs/003 L2-4 (docs/03_INTERACTION_CONTRACTS.md:142-149) added a real
+	# fallback *visual* dwell in between "asset failed" and "completed" —
+	# report_asset_load_failure() no longer completes synchronously in the
+	# same call; it shows the fallback text first, then completes once the
+	# dwell timer elapses (see tests/ui/test_l2_4_presentation_fallback_visual.gd
+	# for the visual itself). force_fallback_visual_dwell_elapsed_for_test()
+	# is the same kind of test seam as force_fallback_timeout_for_test().
 	var presentation: PresentationController = auto_free(PresentationController.new())
 	add_child(presentation)
 	var controller := _make_controller()
@@ -210,6 +217,11 @@ func test_asset_load_failure_completes_the_presentation_within_bounded_time_inst
 	assert_bool(controller.legal_actions().is_empty()).is_true()
 
 	presentation.report_asset_load_failure("L2_DEAL_CARD_V001")
+	# Still bounded and held (not permanently) during the brief fallback
+	# visual dwell — not yet completed.
+	assert_str(presentation.active_token()).is_not_equal("")
+
+	presentation.force_fallback_visual_dwell_elapsed_for_test()
 
 	assert_str(presentation.active_token()).is_equal("")
 	assert_bool(controller.legal_actions().is_empty()).is_false()

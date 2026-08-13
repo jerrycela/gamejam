@@ -61,15 +61,18 @@ func test_bust_state_uses_result_bust_and_shows_bust_label() -> void:
 
 
 func test_font_sizes_come_from_theme_tokens_not_hardcoded_literals() -> void:
+	# Literal Figma/theme values (ui/theme/lsbj_theme.tres
+	# Tokens/constants/value_total_font_size=56,
+	# value_total_state_font_size=18) — NOT re-derived via
+	# view.get_theme_constant(), which would just compare the production
+	# code's own accessor call against itself (an identity, provably true
+	# even if _ready() hardcoded the font size and never called
+	# get_theme_constant() at all).
 	var runner := scene_runner("res://ui/components/value_display.tscn")
 	var view := runner.scene() as ValueDisplayView
 
-	assert_int(view.get_value_label().get_theme_font_size("font_size")).is_equal(
-		view.get_theme_constant("value_total_font_size", "Tokens")
-	)
-	assert_int(view.get_state_label().get_theme_font_size("font_size")).is_equal(
-		view.get_theme_constant("value_total_state_font_size", "Tokens")
-	)
+	assert_int(view.get_value_label().get_theme_font_size("font_size")).is_equal(56)
+	assert_int(view.get_state_label().get_theme_font_size("font_size")).is_equal(18)
 
 
 func test_set_from_hand_evaluation_reflects_the_evaluator_result_without_computing_it_itself() -> void:

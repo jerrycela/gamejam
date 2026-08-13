@@ -49,11 +49,25 @@ func test_hand_views_instantiate_the_card_face_component_not_a_texture() -> void
 	assert_object(player_card).is_instanceof(CardFaceView)
 
 
-func test_action_bar_instantiates_the_action_button_component_not_a_texture() -> void:
+func test_action_bar_instantiates_real_button_components_not_a_texture() -> void:
+	# Since GameBootstrap now wires and syncs the scene on load (see
+	# tests/ui/test_game_bootstrap.gd), the panel's composition at rest is
+	# BETTING's single DealButtonView, not the design-time HitButton/
+	# StandButton/DoubleButton/SurrenderButton scaffold — those get freed the
+	# moment sync_with_legal_actions() first runs, same as any other gameplay
+	# test that touches the ActionBar. What L1-4 actually needs proven (real
+	# node composition, never a flat texture standing in for a button) holds
+	# for whichever buttons are actually present.
 	var runner := scene_runner("res://scenes/game_root.tscn")
 	var root: Node = runner.scene()
 	var table_ui := root.get_node("L1Root/TableUI") as Node
+	var action_bar := table_ui.find_child("ActionBar", true, false) as ActionBarView
 
-	for button_name: String in ["HitButton", "StandButton", "DoubleButton", "SurrenderButton"]:
-		var button := table_ui.find_child(button_name, true, false)
-		assert_object(button).is_instanceof(ActionButtonView)
+	assert_int(action_bar.button_count()).is_greater(0)
+	for child in action_bar.get_node("ButtonRow").get_children():
+		assert_bool(child is ActionButtonView or child is DealButtonView).is_true()
+		assert_bool(child is TextureRect or child is Sprite2D).is_false()
+
+	# BETTING (the state the scene boots into) specifically renders through
+	# DealButtonView, not ActionButtonView — assert that concretely too.
+	assert_object(action_bar.deal_button()).is_instanceof(DealButtonView)

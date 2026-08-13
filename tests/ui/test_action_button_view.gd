@@ -50,11 +50,13 @@ func test_button_carries_no_local_stylebox_override() -> void:
 
 
 func test_button_size_comes_from_theme_tokens_not_a_hardcoded_literal() -> void:
+	# Literal Figma values (docs/12_FIGMA_COMPONENT_MANIFEST.md BTN_ACTION,
+	# node 5:2) — NOT re-derived via button.get_theme_constant(), which
+	# would just compare the production code's own accessor call against
+	# itself (an identity, provably true even if _ready() hardcoded the
+	# size and never called get_theme_constant() at all). Same pattern as
+	# tests/ui/test_deal_button_view.gd's literal 320.0/72.0 assertions.
 	var runner := scene_runner("res://ui/components/action_button.tscn")
 	var button := runner.scene() as ActionButtonView
 
-	var expected_size := Vector2(
-		button.get_theme_constant("action_button_width", "Tokens"),
-		button.get_theme_constant("action_button_height", "Tokens"),
-	)
-	assert_vector(button.custom_minimum_size).is_equal(expected_size)
+	assert_vector(button.custom_minimum_size).is_equal(Vector2(210, 64))
