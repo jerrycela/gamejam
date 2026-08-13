@@ -85,6 +85,7 @@
 - [ ] P2 - `scripts/core/round_controller.gd` 是 `RefCounted`，無法直接掛為場景節點腳本，需要 Node 適配器才能讓 `PresentationController` 等場景節點透過正常 scene-tree wiring 取得引用 → 刻意不改 core（維持純邏輯可 headless 測試的邊界）；`scripts/presentation/round_controller_node.gd` 為此適配器，**進行中、尚未 commit**，其對應測試 `tests/ui/test_round_controller_node.gd` 於本次查核時已 3/3 pass。
 - [ ] P2 - 專案未內嵌 Inter 字型；`ui/theme/lsbj_theme.tres` 的字級（size／line-height）結構已依 Figma token 建立，但字族在 runtime 回退到 Godot 預設字型，非 Inter → 待補字型檔並在 Theme 綁定。
 - [ ] P2 - `docs/plans/2026-08-13-doc06-asset-structure-revision.md`（荷官與背景素材拆分、anti-infographic 規則改為產出後檢核清單）提案**待人工核准**，尚未生效，不可假設已採用該修訂後的資產結構規則。
+- [ ] P1 - **gdUnit4 測試會靜默消失**：當某個測試在檔案順序上失敗時，緊接其後的下一個測試可能同時從 discovery 與執行中被丟棄——無錯誤訊息、無 orphan 報告，只有統計數字少一個（實測 10 而非 11）。2026-08-13 觀察到，觸發條件為使用手動 `signal.connect(func(...))` lambda 捕捉訊號；改用 gdUnit4 慣用的 `monitor_signals()` + `assert_signal()` 後不再發生，且與前一個測試的成敗無關。**風險等級高於表面**：一個 RED 測試會遮蔽下一個 RED 測試，導致失敗數被低報，而 TDD 的 RED 階段正是最依賴失敗數正確的時候。緩解：測試中一律用 `monitor_signals()`／`assert_signal()`，不要手寫 lambda 連接訊號；並在每輪核對測試總數是否符合預期。
 - [ ] P2 - gdUnit4 在 discovery 階段遇到 parse error（引用尚不存在的 class）時，Godot 會以 signal 11 崩潰並輸出 C++ backtrace，而非乾淨地回報 parse error。已於 2026-08-13 觀察到兩次，兩次皆伴隨 parse error。不影響綠燈時的驗收，但會讓 TDD 的 RED 階段輸出被崩潰堆疊淹沒、難以判讀失敗原因。
 
 ## Next Smallest Task
