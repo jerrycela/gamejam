@@ -64,6 +64,7 @@
 - Bet transactions are guarded exactly once per `round_id`；invalid operations preserve state，odd Blackjack／surrender credits round upward，and bankroll resets only below the minimum bet at NEXT_ROUND。
 - `tests/core/test_bet_ledger.gd`：18/18 cases pass，covering every specs/002 numeric example、insufficient chips、duplicate close paths and low-bankroll reset。
 - `RoundController`（`scripts/core/round_controller.gd`，`RefCounted`）完整六狀態機已實作並通過 `tests/core/test_round_controller.gd`（51/51 cases，commit `ea2ffa5`、`96d15c4`）：可跑滿 `BETTING → INITIAL_DEAL → PLAYER_TURN → DEALER_TURN → RESOLVE_ROUND → ROUND_END → NEXT_ROUND → BETTING` 一整圈，含 P-D-P-D initial deal、upcard peek／natural priority table、牌靴耗盡中途 abort/refund、HIT/STAND、DOUBLE、late SURRENDER、逐步（stepped）dealer turn、`begin_presentation`/`complete_presentation` exactly-once token guard（含 token 重用防護）、`NEXT_ROUND` 與 runtime 牌靴替換生命週期。對應 `docs/plans/2026-08-13-round-controller.md` Task 1–9 全部完成；Task 10（本文件更新）為當次工作項目。
+- **`scripts/presentation/game_bootstrap.gd`（`GameBootstrap`）**：掛載於 `scenes/game_root.tscn` 的 `Bootstrap` 節點，`_ready()` 產生並 log `shoe_id`／`shuffle_seed`（`docs/02_BLACKJACK_RULES.md` §8 的可重現性要求）、建立 `DeckShoe.create_runtime()`＋`BetLedger`＋`RoundController.create_injected()`、接線 `RoundControllerNode` 與 `PresentationController`，並同步 ActionBar。**在此之前無任何程式接線 controller，專案無法實際執行**；現在載入場景即處於 `BETTING` 且顯示 DEAL 按鈕。`bootstrap(shoe_id, shuffle_seed)` 同時是 production 入口與測試接縫，`last_shoe_id()`／`last_shuffle_seed()` 讓可重現性可被測試核對而非僅靠 stdout（commit `0a1564c`）。
 - 場景樹已依 `docs/05_FIGMA_TO_GODOT.md:29-51` 建立：`scenes/game_root.tscn`（`L3Root`/`L2Root`/`L1Root` 分層）、`ui/components/action_button.tscn`、`ui/components/card_view.tscn`、`ui/theme/lsbj_theme.tres`（commit `526cc46`）。`GameRoot` 由多個獨立子節點組合，非單一整張圖（`tests/ui/test_game_root_composition.gd` 5/5 pass）。
 - 美術素材 9 項已產出並進版控（commit `e1a9ddf`、`088d886`）：`L1_TABLE_FELT_V001`、`L1_CARD_BACK_V001`、`L3_ROOM_BG_V001`、`L3_DEALER_IDLE_V001`、6 張 `L2_DEALER_REACT_*`（`BLACKJACK`／`PLAYER_BUST`／`PLAYER_LOSE`／`PLAYER_WIN`／`PUSH`／`SURRENDER`），以及身分基準 `CHAR_DEALER_CANON_V001`（不進遊戲）。母帶存 `assets/source/image/`，runtime 用檔存 `assets/textures/`。
 - Git repository 已有多個 commit（非零 commit）並推送至 `origin`（`https://github.com/jerrycela/gamejam.git`）`main` 分支；本檔更新前 `HEAD` 與 `origin/main` 一致，最新 commit `ca90161`。
@@ -101,17 +102,15 @@
 
 ## Current Verification
 
-- Godot executable: `4.7.1.stable.official.a13da4feb`。
-- Headless editor import: exit code `0`。
-- **查核時間點：本次更新時，於同一 session 內有另一 agent 正在即時修改 `scripts/presentation/` 與對應測試，以下數字是該時間點的快照，非穩定值，重新整理前請重新執行測試指令核實**（`docs/09_TEST_AND_ACCEPTANCE.md:20-22`：`/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c --ignoreHeadlessMode`）。
-- gdUnit4 全量測試（`res://tests`）：查核時 **122 test cases，19 failures，0 errors／flaky／skipped／orphans，exit code `100`**（非 GREEN）。全部 19 項失敗集中在 `tests/ui/test_presentation_controller.gd`（`PresentationController` 尚未完成的 WIP，見「Implemented」與「Next Smallest Task」）；其餘 12 個測試檔全數 0 failure：
-  - Core（`tests/core`）：85/85 pass（`test_hand_evaluator` 9、`test_deck_shoe` 7、`test_bet_ledger` 18、`test_round_controller` 51），0 errors／failures／flaky／skipped／orphans，單獨執行 `-a res://tests/core` 時 exit code `0`。
-  - UI（`tests/ui`，扣除失敗中的 `test_presentation_controller.gd`）：28/28 pass（`test_game_root_layering` 5、`test_action_button_view` 5、`test_l3_root_mouse_filter` 2、`test_game_root_composition` 5、`test_round_controller_node` 3、`test_lsbj_theme_tokens` 5、`test_card_face_dynamic_text` 3）。
-  - 若排除進行中、尚未 commit 的 `test_presentation_controller.gd`（單獨執行 `-a res://tests/core` + `-a res://tests/ui` 排除該檔）：113/113 pass，0 errors，exit code `0`。此為「基線功能（不含本次 WIP 的 L2 場景整合）」的驗證結果，**不等於**`specs/003` `RC-2` 要求的「`res://tests` 全量 0 error/failure」——`RC-2` 目前**未達成**，因為全量指令本身仍回傳 exit code `100`。
-- **兩個真實存在、指向不同樹的結果，不要混為一談**：
-  - **最後一次程式碼變更（commit `526cc46`，「feat: first Godot scenes」；其後的 commit 皆為文件變更，不影響測試結果）＝ 110/110 pass，0 errors／failures／flaky／skipped／orphans，exit code `0`**。該 commit 只含當時的 6 個 UI 測試檔（`test_action_button_view`／`test_card_face_dynamic_text`／`test_game_root_composition`／`test_game_root_layering`／`test_l3_root_mouse_filter`／`test_lsbj_theme_tokens`，共 25 case）+ 85 個 core case，尚不含 `test_round_controller_node.gd` 與 `test_presentation_controller.gd`（`git show --stat 526cc46` 可核對）。這是**可回滾的乾淨綠燈點**，不是憑空的過期數字。
-  - **工作區（含另一 agent 正在寫的 `scripts/presentation/` WIP）＝ 122 test cases、19 failures、exit code `100`**，失敗全數集中在 `tests/ui/test_presentation_controller.gd`；`test_round_controller_node.gd`（3 case）已轉綠、其餘 110 個原有 case 仍全數維持 pass（85 core + 25 原 UI，見上），113 = 110 + 3。
-  - 前一版本此欄記載「34/34」為過期快照（早於 `RoundController`／場景樹落地）。中途另有一個短暫、非穩定狀態：`test_round_controller_node.gd` 與 `test_presentation_controller.gd` 兩個測試檔案剛加入、對應實作（`RoundControllerNode`／`PresentationController`）尚未落地時，gdUnit4 discovery 階段出現 script parse error（`Identifier "RoundControllerNode" not declared`）並使 Godot 引擎以 signal 11 崩潰、輸出 C++ backtrace，而非乾淨回報測試結果；此狀態既非 `HEAD` 的 110/110，也非查核時的 122/19-failures，只是工作區演進過程中的一個瞬間。
+> **本節數字必須與下方「specs/003 Acceptance Criteria Status」表格及其摘要一致。** 三者任一更新時，另兩者必須同時更新——本檔曾於 2026-08-13 因只更新摘要而未更新詳細表格，導致同一份文件對 `RC-2` 給出兩個相反答案。單獨更新其中一處即為缺陷。
+
+- Godot executable：`4.7.1.stable.official.a13da4feb`
+- Headless editor import／parse check：exit code `0`
+- **gdUnit4 全量測試（`res://tests`）：`165 test cases，0 errors／0 failures／0 flaky／0 skipped／0 orphans，exit code 0`**（23 個 test suite 全部執行，最後一次核實於 commit `0a1564c` 之後）
+  - Core（`tests/core`）85：`test_hand_evaluator` 9、`test_deck_shoe` 7、`test_bet_ledger` 18、`test_round_controller` 51
+  - UI（`tests/ui`）80，涵蓋 theme token 字面值、四個元件、場景樹分層、L3 mouse filter、presentation 契約、bootstrap 接線、L1-3／L1-6／L2-4／L3-3／L3-4
+- **`RC-2` 已達成**（全量指令 exit 0）
+- **測試有效性**：2026-08-13 經獨立唯讀稽核逐檔檢視 22 個測試檔，`tests/core` 未發現空洞測試；`tests/ui` 曾發現 2 個循環論證測試（`test_action_button_view.gd`、`test_value_display_view.gd`，皆拿被測物自己的 theme accessor 與自己比對），**已於 commit `0a1564c` 修正為斷言 Figma 字面值**。稽核亦逐一單獨執行 21 個 UI 測試檔，確認每檔實際執行數等於靜態原始碼測試數，即 P1（相鄰測試靜默消失）在該快照下未發生。
 
 ## Visual Status
 
@@ -140,7 +139,7 @@
 | ID | 狀態 | 依據 |
 |---|---|---|
 | `RC-1` | **完成** | `docs/plans/2026-08-13-round-controller.md` Task 7（stepped dealer turn）、Task 8（presentation input barrier）、Task 9（NEXT_ROUND／shoe lifecycle）均有對應 gdUnit4 case 且全數 pass，見 `tests/core/test_round_controller.gd`（51/51 pass，commit `ea2ffa5`、`96d15c4`）。 |
-| `RC-2` | **未達成** | `docs/09_TEST_AND_ACCEPTANCE.md` 指定的 `res://tests` 全量測試指令，查核時回傳 `122 test cases, 19 failures, exit code 100`，非 0 error/failure。失敗集中在進行中、尚未 commit 的 `tests/ui/test_presentation_controller.gd`（見「Current Verification」）。 |
+| `RC-2` | **已達成** | `docs/09_TEST_AND_ACCEPTANCE.md` 指定的 `res://tests` 全量測試指令回傳 `165 test cases，0 errors／failures／flaky／skipped／orphans，exit code 0`。 |
 | `RC-3` | **進行中（本次任務）** | 本文件更新即為 `RC-3` 的執行；本次更新完成後仍需在 `RC-2` 轉綠後再次核對是否需要修訂。 |
 
 ### L1 — Component Pipeline
@@ -148,7 +147,7 @@
 | ID | 狀態 | 依據 |
 |---|---|---|
 | `L1-1` | **未達成（部分）** | `BTN_ACTION`、`CARD_FACE` 已 `1.0.0`／`APPROVED_PENDING_GODOT_SYNC`；`PANEL_ACTION_BAR`、`VALUE_TOTAL` 仍為 `DRAFT`／`HUMAN_APPROVAL_REQUIRED`（`docs/12` §2）。4 元件中 2 個未達成。 |
-| `L1-2` | **未達成（部分）** | `BTN_ACTION`→`action_button.tscn`、`CARD_FACE`→`card_view.tscn` 已存在且 headless import 隨整體專案通過。`PANEL_ACTION_BAR`→`action_bar.tscn`、`VALUE_TOTAL`→`value_display.tscn` 檔案不存在（實測 `find ui -type f`）。 |
+| `L1-2` | **已達成** | 四個元件皆有對應獨立 `.tscn` 且 headless import exit 0：`BTN_ACTION`→`action_button.tscn`、`CARD_FACE`→`card_view.tscn`、`PANEL_ACTION_BAR`→`action_bar.tscn`、`VALUE_TOTAL`→`value_display.tscn`。另有 `deal_button.tscn`（`BTN_DEAL`，經裁定由組合關係納入範圍，因 `PANEL_ACTION_BAR` 的 `Betting`／`RoundEnd` variant 內含 `BTN_DEAL` instance）。 |
 | `L1-3` | **待驗證（部分）** | `CARD_FACE` 有明確測試 `test_card_face_scene_has_no_texture_node_carrying_text`（pass，`tests/ui/test_card_face_dynamic_text.gd`）。`BTN_ACTION` 未見同等「非 texture」明確斷言，僅有 Label 內容／主題變體測試（`tests/ui/test_action_button_view.gd`）。`PANEL_ACTION_BAR`、`VALUE_TOTAL` 因 scene 不存在無法核對。 |
 | `L1-4` | **完成** | `tests/ui/test_game_root_composition.gd` 5/5 pass：`GameRoot` 非扁平圖片、無單一 `TextureRect`/`Sprite2D` 覆蓋全螢幕、hand views 用 `CardFace` 元件、action bar 用 `ActionButton` 元件而非 texture。 |
 | `L1-5` | **未達成** | 三種 viewport（`1080×1920`／`1080×2400`／`1200×1600`）screenshot QA 未見任何執行紀錄或截圖產出，未開始。 |
@@ -174,11 +173,11 @@
 | `L3-4` | **未達成** | 需要完整跑兩個連續回合（`NEXT_ROUND` 後再跑一次）且 L3 loop 不中斷的自動化驗證；未見對應測試檔案或 pass 紀錄。 |
 | `L3-5` | **已驗證通過** | 2026-08-13 實際開圖核對兩張 L3 素材，非僅憑檔名或先前紀錄推斷。`L3_ROOM_BG_V001.png`（720×1280 RGB）：深色木質牆板配金色嵌線、左右各一盞黃銅壁燈、兩側深綠絨窗簾與金流蘇、下半部綠氈桌面與弧形金色桌緣——**零人物**，無 progression 暗示、無內容尺度元素、無文字／logo／UI／假數字。`L3_DEALER_IDLE_V001.png`（720×1280 RGBA）：腰部以上胸像，棕髮高包頭、金色水滴耳環、淡妝淺笑，白色長袖襯衫扣至領口＋黑領結＋金滾邊黑背心，雙手交疊腰前，長袖蓋至手腕、構圖未及腰下——完整專業荷官制服，無裸露或暗示，與原簡報第 8 頁「角色赤裸進程」機制無關且未留伏筆。單一靜態姿勢，呼吸浮動由 Godot 端 `idle_breathe` 的 scale／position track 產生，不在素材內。<br>**查核方法警示**：以 Read 工具預覽 `L3_DEALER_IDLE_V001.png` 會顯示亮綠色背景，乍看像未去背。實際以 PIL 檢查為 RGBA、四角 `alpha=0`、中心 `alpha=255`——**確為真去背**，預覽的綠色是工具未做 alpha 合成而直接顯示底層殘留色值所致。判定素材透明度時不可只憑預覽外觀。 |
 
-**摘要（2026-08-13 16:30 更新）**：19 條中 **完成 15 條**——`RC-1`~`RC-3`、`L1-1`、`L1-2`、`L1-4`、`L1-6`、`L2-1`~`L2-3`、`L2-5`、`L3-1`~`L3-5`。
-**未完成 4 條**：
+**摘要（2026-08-13 16:35 更新）**：19 條中 **完成 18 條**——`RC-1`~`RC-3`、`L1-1`、`L1-2`、`L1-4`、`L1-6`、`L2-1`~`L2-3`、`L2-5`、`L3-1`~`L3-5`。
+**未完成 1 條**：
 - `L1-3`（動態文字非 texture）：`tests/ui/test_l1_3_dynamic_text_components.gd` 已新增涵蓋四個元件，**待審**。
 - `L1-5`（三種 viewport 人工批准）：**明確不通過**。截圖已產出（`reports/viewport_qa/`，方法見 `tools/capture_viewports.gd`），機器核對三尺寸全通過（不出界／不重疊／中央區未塌陷），但實際畫面有三個缺陷待修：(1) `ValueDisplayView extends Control` 非 `Container`，不回報 minimum size，文字溢出蓋掉下方兩排；(2) `BackgroundView` 為 `STRETCH_KEEP` 不縮放，720×1280 素材僅覆蓋約 60% 畫布寬度，右側與下方露出引擎預設灰底；(3) `DealerIdleView` 鋪滿 full rect 導致荷官放大至佔滿全高，壓縮中央 L3 區與 L1 元件。**教訓：既有機器斷言檢查的是 L1 元件彼此的矩形關係，三個缺陷全部出在 L1 與 L3 之間或素材尺寸與畫布不符——矩形不重疊不等於畫面可讀。**
 - `L2-4`（素材失敗 fallback 視覺）：`tests/ui/test_l2_4_presentation_fallback_visual.gd` 已新增，**待審**。
-- 另有 2 個已確認的**空洞測試**待修（見 Known Problems）：`test_action_button_view.gd::test_button_size_comes_from_theme_tokens_not_a_hardcoded_literal` 與 `test_value_display_view.gd::test_font_sizes_come_from_theme_tokens_not_hardcoded_literals`，兩者皆拿被測物自己的 theme accessor 與自己比對，為恆等式，production 改成硬編碼仍會通過。
+- 先前稽核發現的 2 個空洞測試**已修**（commit `0a1564c`），改為斷言 Figma 字面值，詳見「Current Verification」測試有效性一節。
 
 僅供快速掃視，實際驗收請以上表逐條為準。
