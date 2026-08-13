@@ -203,15 +203,25 @@ func _start_fallback_timer(fallback_ms: int) -> void:
 
 
 ## ActionBar.disabled = true (docs/03_INTERACTION_CONTRACTS.md:126) means
-## every button in the bar rejects input; the HBoxContainer/Control itself is
-## never freed or have its children cleared — only each Button's own
-## `disabled` flag flips, so no button disappears-then-reappears.
+## every button in the bar rejects input; composition (which buttons exist)
+## is never touched here — only each Button's own `disabled` flag flips, so
+## no button disappears-then-reappears.
+##
+## When `_action_bar` is a real ActionBarView (PANEL_ACTION_BAR), this
+## delegates to its own set_blocking_disabled(), which is guaranteed to
+## disable its nested buttons without touching composition (see that
+## component's docstring for why: an empty-panel flash mid-animation is
+## exactly what specs/003 warns against). Any other Control (e.g. the flat
+## HBoxContainer-of-buttons used by earlier tests) falls back to a recursive
+## descendant search, since a plain Control has no dedicated API for this.
 func _set_action_bar_disabled(disabled: bool) -> void:
 	if _action_bar == null:
 		return
-	for child in _action_bar.get_children():
-		if child is BaseButton:
-			(child as BaseButton).disabled = disabled
+	if _action_bar is ActionBarView:
+		(_action_bar as ActionBarView).set_blocking_disabled(disabled)
+		return
+	for button in _find_buttons_recursive(_action_bar):
+		button.disabled = disabled
 
 
 ## docs/03_INTERACTION_CONTRACTS.md:132-136: RoundController decides the next
@@ -219,12 +229,31 @@ func _set_action_bar_disabled(disabled: bool) -> void:
 ## PresentationController reads game state to drive UI, and it always reads
 ## it fresh from RoundController.legal_actions() rather than caching or
 ## guessing a transition.
+##
+## MUST NOT be called while a presentation is active: RoundController.legal_actions()
+## returns [] during blocking, and feeding that into an ActionBarView would
+## wrongly clear its buttons to zero mid-animation (see _set_action_bar_disabled
+## above for why that composition change is reserved for completion only).
+## This is only ever called from _complete(), i.e. after a presentation has
+## just ended.
 func _sync_action_bar_with_legal_actions() -> void:
 	if _action_bar == null or _controller == null:
 		return
 	var legal := _controller.legal_actions()
-	for child in _action_bar.get_children():
+	if _action_bar is ActionBarView:
+		(_action_bar as ActionBarView).sync_with_legal_actions(legal)
+		return
+	for child in _find_buttons_recursive(_action_bar):
 		if child is ActionButtonView:
 			var button := child as ActionButtonView
 			var action_id: StringName = _ACTION_ID_BY_BUTTON_ACTION.get(button.action, &"")
 			button.disabled = not legal.has(action_id)
+
+
+func _find_buttons_recursive(node: Node) -> Array[BaseButton]:
+	var result: Array[BaseButton] = []
+	for child in node.get_children():
+		if child is BaseButton:
+			result.append(child)
+		result.append_array(_find_buttons_recursive(child))
+	return result

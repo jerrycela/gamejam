@@ -1,12 +1,14 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="1"]
 [ext_resource type="PackedScene" path="res://ui/components/card_view.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://ui/components/action_button.tscn" id="3"]
-[ext_resource type="Texture2D" path="res://assets/source/image/L3_ROOM_BG_V001.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/textures/L3_ROOM_BG_V001.png" id="4"]
 [ext_resource type="Texture2D" path="res://assets/textures/L3_DEALER_IDLE_V001.png" id="5"]
 [ext_resource type="Script" path="res://scripts/presentation/round_controller_node.gd" id="6"]
 [ext_resource type="Script" path="res://scripts/presentation/presentation_controller.gd" id="7"]
+[ext_resource type="PackedScene" path="res://ui/components/action_bar.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://ui/components/value_display.tscn" id="9"]
 
 [node name="GameRoot" type="Control"]
 layout_mode = 3
@@ -138,10 +140,11 @@ text = ""
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="HandTotal" type="Label" parent="L1Root/TableUI/Layout/BottomCluster"]
+[node name="HandTotal" parent="L1Root/TableUI/Layout/BottomCluster" instance=ExtResource("9")]
 layout_mode = 2
-horizontal_alignment = 1
-text = "0"
+size_flags_horizontal = 4
+state = 0
+value = "0"
 
 [node name="ChipsAndBet" type="HBoxContainer" parent="L1Root/TableUI/Layout/BottomCluster"]
 layout_mode = 2
@@ -171,24 +174,23 @@ layout_mode = 2
 suit = 2
 rank = "7"
 
-[node name="ActionBar" type="HBoxContainer" parent="L1Root/TableUI/Layout/BottomCluster"]
+[node name="ActionBar" parent="L1Root/TableUI/Layout/BottomCluster" instance=ExtResource("8")]
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_constants/separation = 12
 
-[node name="HitButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
+[node name="HitButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar/ButtonRow" instance=ExtResource("3")]
 layout_mode = 2
 action = 0
 
-[node name="StandButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
+[node name="StandButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar/ButtonRow" instance=ExtResource("3")]
 layout_mode = 2
 action = 1
 
-[node name="DoubleButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
+[node name="DoubleButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar/ButtonRow" instance=ExtResource("3")]
 layout_mode = 2
 action = 2
 
-[node name="SurrenderButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar" instance=ExtResource("3")]
+[node name="SurrenderButton" parent="L1Root/TableUI/Layout/BottomCluster/ActionBar/ButtonRow" instance=ExtResource("3")]
 layout_mode = 2
 action = 3
 

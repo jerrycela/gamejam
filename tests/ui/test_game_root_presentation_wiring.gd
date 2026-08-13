@@ -20,8 +20,7 @@ func test_deal_presentation_blocks_and_then_reflects_legal_actions_on_the_real_a
 	var round_controller_node := root.get_node("RoundController") as RoundControllerNode
 	var presentation_controller := root.get_node("PresentationController") as PresentationController
 	var table_ui := root.get_node("L1Root/TableUI") as Node
-	var action_bar := table_ui.find_child("ActionBar", true, false) as Control
-	var hit_button := table_ui.find_child("HitButton", true, false) as ActionButtonView
+	var action_bar := table_ui.find_child("ActionBar", true, false) as ActionBarView
 
 	var cards: Array[Card] = [
 		_card(Card.Rank.EIGHT, Card.Suit.HEARTS),
@@ -39,20 +38,27 @@ func test_deal_presentation_blocks_and_then_reflects_legal_actions_on_the_real_a
 	var started := presentation_controller.begin_deal_presentation("round-game-root-wiring")
 
 	assert_bool(started).is_true()
-	assert_bool(hit_button.disabled).is_true()
+	# Blocking must not clear the scaffold's pre-authored buttons — same
+	# instances, just disabled.
+	for button in action_bar.buttons():
+		assert_bool(button.disabled).is_true()
 
 	var finished := presentation_controller.notify_presentation_finished(
 		presentation_controller.active_token()
 	)
 
 	assert_bool(finished).is_true()
-	# HIT is legal after a non-natural deal lands in PLAYER_TURN — the real
-	# scene button must reflect RoundController.legal_actions(), read fresh,
-	# not a PresentationController guess.
-	assert_bool(hit_button.disabled).is_equal(
-		not controller.legal_actions().has(RoundController.ACTION_HIT)
-	)
-	assert_bool(hit_button.disabled).is_false()
+	# Completion rebuilds the panel from RoundController.legal_actions(), so
+	# the old "HitButton"-named node from the static scaffold no longer
+	# exists — buttons are looked up by .action now, not by node name.
+	var legal := controller.legal_actions()
+	assert_bool(legal.has(RoundController.ACTION_HIT)).is_true()
+	var rebuilt_hit_button: ActionButtonView = null
+	for button in action_bar.buttons():
+		if button.action == ActionButtonView.Action.HIT:
+			rebuilt_hit_button = button
+	assert_object(rebuilt_hit_button).is_not_null()
+	assert_bool(rebuilt_hit_button.disabled).is_false()
 
 
 func test_round_controller_node_and_presentation_controller_exist_unwired_by_default() -> void:
