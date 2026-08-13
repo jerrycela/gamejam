@@ -191,3 +191,76 @@ MVP 是**把 L1／L2／L3 分層架構跑起來**。21 點規則是載體，不�
 | 測試指令與驗收 | `docs/09_TEST_AND_ACCEPTANCE.md` |
 | agent 行為守則 | `AGENTS.md`（治理權威，Spectra 只承接文件格式） |
 | 目前狀態與已知問題 | `PROJECT_STATE.md` |
+
+---
+
+## 10. 2026-08-13 晚間交接：把東西寫進引擎
+
+### 這一節存在的理由
+
+使用者指出一個架構問題，是本專案至今最重要的一次校正：
+
+> 「你有實際用 Godot 引擎去控制裡面的功能，還是只是用你的方式寫程式碼，然後用 Godot 把它 compile 出來？這兩種差很多：前者我可以去引擎裡面細節地調這些參數；後者變成我都得依賴你。用這套製程做遊戲，為什麼要用 Godot？就是希望後續可以藉由人來改善各種細節體驗。」
+
+**他是對的，而且問題是我造成的。**
+
+當時的狀態：13 個動畫參數全部是 `const`（發牌間隔 150ms、進場縮放 0.55、翻牌 240ms、點數滾動 200ms、爆牌強調 1.2 倍…），全專案 `@export` 只有 10 個、`const` 有 29 個。`const` 不會出現在 Inspector，所以想把發牌間隔改成 120ms，唯一的路是找 AI 改程式碼。
+
+**「能跑」與「能被 polish」是兩種完成度，而我一直只做到前者。**
+
+### 判準
+
+> **如果一個不寫程式的人可能想改它，它就必須在編輯器裡可見可調。**
+
+分界：
+- **手感參數開放**（`@export`）：動畫時長、縮放幅度、緩動曲線、音量、間距
+- **契約參數鎖死**（`const`）：`FALLBACK_DEAL_CARD_MS`(1500)、`FALLBACK_DEALER_HOLE_REVEAL_MS`(1200)、各 dwell 值——它們登記在 `docs/13`，`specs/003` `L2-5` 會核對文件與程式碼一致，在 Inspector 隨手改掉會靜默破壞契約。這類必須在註解寫明「要改必須同步 `docs/13`」
+
+### 已接上 Godot MCP
+
+`.mcp.json`（專案層級）→ `mkdevkit/godot-mcp`，server 建在 `~/.local/share/godot-mcp`（**刻意在 repo 外**，工具鏈不隨遊戲出貨）。
+
+**選擇過程與熱門度相反**，值得記：
+
+| MCP | 星數 | 能編輯動畫／屬性／`.tres`？ |
+|---|---|---|
+| `Coding-Solo/godot-mcp` | 5182 | ❌ 只能啟動編輯器、跑專案（headless 腳本） |
+| `ee0pdt/godot-mcp` | 603 | ❌ 節點增刪改，無動畫編輯 |
+| **`mkdevkit/godot-mcp`** | **8** | ✅ 173 工具：動畫軌道／關鍵影格／Theme／音訊／粒子／shader／`.tres` |
+
+因為只有 8 星，**安裝前讀過 `plugin.gd` 全文**。它是 `EditorPlugin`，啟用時注入 3 個 autoload、停用時移除。實測三條路徑均無污染：
+
+- 測試 `-s` 模式 → EditorPlugin 不載入
+- parse check `--editor --quit` → 載入後乾淨移除
+- 互動式編輯器 → 僅執行期間存在
+
+**若編輯器被強制中止，autoload 可能殘留在 `project.godot`。commit 前務必 `git diff project.godot` 確認。**
+
+MCP 走 UndoRedo，所以 AI 做的改動**使用者可以在編輯器裡直接 Ctrl+Z 復原**——這讓「AI 改」與「人改」變成同一個操作層，而不是兩套互相看不見的機制。
+
+### 重啟後的第一要務
+
+**把目前只活在程式碼裡的東西，搬進編輯器可編輯的形式。**
+
+優先序：
+
+1. **`const` → `@export`**（不需要 MCP，最直接）。用 `@export_range` 加合理範圍與 `suffix:ms`，用 `@export_group` 分組讓 Inspector 不是一長串。預設值必須等於現有 `const` 值，不改變行為。
+2. **緩動曲線改成 `@export`**：`@export var deal_card_transition: Tween.TransitionType = Tween.TRANS_BACK`。Godot 會自動顯示成下拉選單。**曲線是動畫手感的核心**，`TRANS_BACK` 與 `TRANS_ELASTIC` 的差別講一百句不如自己拉一次。
+3. **音效節點放進 `.tscn`**：`AudioStreamPlayer` 具名節點放在 `L2Root` 底下、`stream` 在場景裡指好。用 `AudioStreamPlayer.new()` 在程式碼建立會讓換音檔、調 `volume_db`、`pitch_scale` 全部鎖死。
+4. **tween 動畫 → `AnimationPlayer` 資源**（需要 MCP）。目前只有荷官呼吸（`idle_breathe`）是真正的 `Animation` sub-resource，可在動畫面板拉曲線；其餘 tween 動畫只活在程式碼。動態序列（依牌數變動）保留 tween 是正確工程判斷，但固定結構的動畫應該搬進去。
+
+### 尚未解的脆弱點
+
+程式碼大量用 `find_child("ActionBar", true, false)` 依名字找節點。**使用者在編輯器裡重新命名節點，程式就壞了，而且不會有明顯錯誤訊息。**
+
+這是「人可以介入」的實質障礙——連改個節點名都有風險。可能解法：`@export NodePath` 或 `%UniqueName`。尚未處理。
+
+### 音效現況
+
+`assets/audio/` 有 9 個程序化合成的 `.wav`（無授權負擔，說明見同目錄 `README.md`），**但尚未接線**——`grep -c "sfx_\|AudioStream" scripts/presentation/gameplay_controller.gd` 為 0。接線時請直接放場景節點，見上方第 3 點。
+
+### 影片路徑已確認關閉
+
+`hermes-script` 的影片能力實測回覆：**無 alpha 輸出、無無縫循環、不支援 Ogg Theora、角色一致性不可靠、解析度卡 768P**。它自己也建議走靜態圖 + 引擎內動畫。
+
+**不要再嘗試這條路。** 現行的引擎內動畫就是最終方案。
