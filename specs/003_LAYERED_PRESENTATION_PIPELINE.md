@@ -2,7 +2,7 @@
 
 Status: DRAFT
 
-Version: 0.1.0
+Version: 0.2.0
 
 ## Goal
 
@@ -46,18 +46,18 @@ Version: 0.1.0
 
 ### 本規格的 Figma 元件範圍
 
-`docs/12_FIGMA_COMPONENT_MANIFEST.md` 目前列管 11 個元件、全數 `PENDING_CREATE`（`docs/12` Verification Log，2026-08-13 `get_metadata` 查核）。全部 11 個一次做完不是證明「管線」所必須；證明管線只需要讓 `docs/05_FIGMA_TO_GODOT.md:13-24` Mapping Strategy 表中會產生不同實作決策的路徑，各至少被實際走過一次。本規格選定 **4 個元件**：
+`docs/12_FIGMA_COMPONENT_MANIFEST.md` 目前列管 11 個元件，現況並非全數未建立：`BTN_ACTION`（node `5:2`）與 `BTN_DEAL`（node `9:17`）已在 Figma 建立、狀態為 `DRAFT`／`HUMAN_APPROVAL_REQUIRED`，`CARD_FACE` 在 Figma `05 Card` page 亦已有實體（`Suit × Orientation` 共 8 個 symbol）但 manifest 尚未回填 node id；其餘 7 個才是真正的 `PENDING_CREATE`（依據：`docs/12` Verification Log 第二筆，2026-08-13 以 `get_metadata(fileKey, nodeId)` 直接查 node 核實，取代已作廢的第一筆「未帶 nodeId 頁面列表」誤判）。11 個一次做完不是證明「管線」所必須；證明管線只需要讓 `docs/05_FIGMA_TO_GODOT.md:13-24` Mapping Strategy 表中會產生不同實作決策的路徑，各至少被實際走過一次。本規格選定 **4 個元件**：
 
 | component_id | 對應的 Mapping Strategy 路徑 | 選擇理由 |
 |---|---|---|
-| `BTN_ACTION` | Variant → Theme type variation | 已由另一個 agent（`figma-slice`）在建，含 design tokens；`Action × State` 兩軸 variant 是本專案唯一需要 Theme type variation 的互動元件，銜接既有進度而非重做 |
-| `CARD_FACE` | Color/Typography variable → Theme resource（花色色彩、點數字型） | 同上，已在建；`Suit × Rank × Orientation` 是本專案唯一需要「同一 scene、大量 variant 組合」的元件，能驗證 Theme resource 而非逐一 hardcode |
+| `BTN_ACTION` | Variant → Theme type variation | Figma 端已由先前 Codex 工作建立（node `5:2`，`Action × State` 16 個 symbol），現由 `figma-slice` 進行 Visual Review Gate 驗收（非新建）；`Action × State` 兩軸 variant 是本專案唯一需要 Theme type variation 的互動元件，銜接既有進度而非重做 |
+| `CARD_FACE` | Color/Typography variable → Theme resource（花色色彩、點數字型） | Figma 端已有實體（`05 Card` page，`Suit × Orientation` 8 個 symbol），manifest 尚待回填 node id 與審核狀態，非從零開始；`Suit × Rank × Orientation` 是本專案唯一需要「同一 scene、大量 variant 組合」的元件，能驗證 Theme resource 而非逐一 hardcode |
 | `PANEL_ACTION_BAR` | Auto Layout → `Container` | 目錄中唯一以「排列其他元件」為核心語意的元件（`docs/04_VISUAL_ENGINEERING_FIGMA.md:136`），是驗證 Figma Auto Layout 對應 Godot `Container`/anchors 而非逐一手動定位的唯一候選；同時直接對應 `docs/09_TEST_AND_ACCEPTANCE.md:116` 的「Button state reflects legal actions」L1 QA 項目 |
 | `VALUE_TOTAL` | Dynamic text → `Label` | `Soft/Hard/Bust` variant 同時牽動文字內容與 `color.result.*` token 切換，是目錄中「動態文字＋動態顏色 token」耦合最緊的元件，比 `VALUE_CHIPS`／`VALUE_BET`（純數字）更能驗證 Dynamic text 路徑 |
 
 `Radius/border → StyleBoxFlat` 與 `Stretchable panel → NinePatchRect` 兩條路徑不另立元件驗證：`BTN_ACTION` 與 `PANEL_ACTION_BAR` 的背板天然會用到 `StyleBoxFlat`，額外指定專屬元件無助於證明管線、只會擴大範圍。`Icon → Texture2D` 路徑本規格不驗證（本規格範圍內元件皆無獨立 icon 需求）。`Full visual screen → composition` 路徑由「L1 Behavior 需求 #3」的 scene tree 組合驗收覆蓋，不需要額外 Figma 節點。
 
-其餘 7 個元件（`BTN_DEAL`、`CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`）**不在本規格範圍**，維持 `docs/12` 現狀 `PENDING_CREATE`；是否／何時做由後續 spec 決定。
+其餘 7 個元件（`BTN_DEAL`、`CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`）**不在本規格範圍**——其中 `BTN_DEAL` 已在 Figma 建立（node `9:17`，`DRAFT`／`HUMAN_APPROVAL_REQUIRED`），其餘 6 個維持 `docs/12` 現狀 `PENDING_CREATE`；本規格通過後，其餘 7 個元件由後續 spec 一次納入，非永久排除（見 Open Questions 已裁決事項 #4）。
 
 ---
 
@@ -71,11 +71,11 @@ Version: 0.1.0
 
 | Event | blocking | fallback_duration_ms | 依據 |
 |---|---|---|---|
-| Deal card（initial deal 四張連續發牌） | `true` | `SPEC REQUIRED` — 需人工/Codex 依演出時長訂定，本規格不代入猜測數值 | `docs/03_INTERACTION_CONTRACTS.md:99` |
-| Dealer hole card reveal | `true` | `SPEC REQUIRED` | `docs/03_INTERACTION_CONTRACTS.md:100` |
+| Deal card（initial deal 四張連續發牌） | `true` | `1500` | `docs/03_INTERACTION_CONTRACTS.md:99` |
+| Dealer hole card reveal | `true` | `1200` | `docs/03_INTERACTION_CONTRACTS.md:100` |
 | Ambient/idle glow（L3 loop 本身） | `false` | 不適用 | `docs/03_INTERACTION_CONTRACTS.md:107-109` |
 
-`fallback_duration_ms` 數值本身是產品／演出節奏判斷，不在 `docs/03`、`docs/04`、`docs/09` 任何一份現有文件中給出預設值，依 `AGENTS.md` §9 No-Guessing 精神不由本規格代為決定，列為 Open Question（見下）。
+`fallback_duration_ms` 是**逾時上限（安全網）**，不是動畫時長本身：它的作用是在演出卡住或素材載入失敗時，保證 HOLD 一定會在有限時間內解除（`docs/03_INTERACTION_CONTRACTS.md:142-149`）。定值原則是「明顯高於預期演出時間，但低於玩家會感覺當機的時間」。四張連續發牌比單張翻牌演出更長，因此給較大值。這兩個數值已由專案負責人裁決（見 Open Questions「已裁決事項」#1），實作階段若實測演出時間逼近上限應調高、遠低於上限則可回頭收斂，調整需求以 changelog 或後續 spec revision 記錄，不得在 code 中悄悄改動。
 
 4. Failure fallback 依 `docs/03_INTERACTION_CONTRACTS.md:142-149`：素材載入失敗時 log asset ID、改用文字／簡單 Tween fallback、有限時間內送出 `presentation_finished`、不得永久卡在 HOLD。
 
@@ -90,6 +90,8 @@ Version: 0.1.0
 3. 至少一個 L2 event（本規格選定：dealer hole card reveal 之 dealer reaction）在演出期間 overlay 或暫時取代 L3 內容，演出結束後 L3 必須恢復到正確的 loop 狀態（不得停在 L2 演出前的最後一幀，也不得跳到錯誤的 progression 狀態）。
 4. L3 節點永不攔截輸入：`L3Root` 及其子節點的 mouse/touch filter 必須設定為忽略，`ActionBar` 命中測試不得被 L3 節點擋住。
 5. L3 的實際美術／progression 內容尺度**不在本規格範圍**（見 Out of Scope）；本規格只要求 L3 有結構插槽與中性 placeholder（沿用 `specs/001` Task 8 既有 placeholder 定義），可以是純色背景＋一個 idle loop 佔位動畫。
+
+6. 「L2 overlay 結束後 L3 恢復正確 loop」的判準採**最小判準**：overlay 前後為同一個 loop 旗標／同一個 idle 動畫（已裁決，見 Open Questions #3）。此判準綁定於「L3 目前只有單一中性 placeholder、無 progression 狀態」的前提；後續 progression spec 一旦引入多重 L3 狀態，此判準必須重新定義，不可直接沿用。
 
 ---
 
@@ -133,14 +135,14 @@ Version: 0.1.0
 - [ ] `L1-2` 上述四元件各自對應獨立 `.tscn`（`docs/05_FIGMA_TO_GODOT.md:66-74` 路徑），Godot headless editor import 對這些 scene 回傳 exit code 0、無 parse error。
 - [ ] `L1-3` 對四個 scene 逐一 grep／人工核對：不存在把 `VALUE_TOTAL`／`VALUE_CHIPS`／`VALUE_BET` 等動態文字烙進 texture 的節點；文字節點類型為 `Label` 或 `RichTextLabel`。
 - [ ] `L1-4` `GameRoot` scene 由 `docs/05_FIGMA_TO_GODOT.md:29-51` 定義的多個子 scene 組合而成（可用 gdUnit4 scene tree 測試核對節點型別與階層），不存在覆蓋整個 viewport 的單一 `TextureRect`/`Sprite2D`。
-- [ ] `L1-5` `reference_1080x1920`、`narrow_portrait`、`wide_portrait` 三種 viewport screenshot QA 完成並經人工批准（`docs/09_TEST_AND_ACCEPTANCE.md:151-171`）；三種 viewport 的具體像素尺寸依 Open Questions 確認後填入 Component Manifest 備註。
+- [ ] `L1-5` 三種 viewport screenshot QA 完成並經人工批准（`docs/09_TEST_AND_ACCEPTANCE.md:151-171`）：`reference_1080x1920` = `1080 × 1920`（9:16，`docs/01_GAME_AND_LAYER_SPEC.md:17-30` 既有基準）、`narrow_portrait` = `1080 × 2400`（20:9，現代長螢幕手機，壓測上下貼邊元件被拉開或裁切）、`wide_portrait` = `1200 × 1600`（3:4，平板直式，壓測中央留給 L3 的空間塌陷或操作列過度拉寬）。三個尺寸各壓測一種失效模式而非隨意取值（已裁決，見 Open Questions #2），截圖解析度固定後本項可機器核對（尺寸比對＋人工視覺批准雙軌）。
 - [ ] `L1-6` `ActionBar`（`PANEL_ACTION_BAR` 實例）的按鈕 enabled/disabled 狀態在完整跑過一個回合（`BETTING → ... → ROUND_END → NEXT_ROUND`）期間，每個 state 切換點都與 `RoundController.legal_actions()` 一致（gdUnit4 scene test 或等效自動化，逐 state 斷言）。
 
 ### L2 — Presentation Contract
 
 - [ ] `L2-1` `RoundController` 完成 `docs/plans/2026-08-13-round-controller.md` Task 8：`begin_presentation`/`complete_presentation` 對非空、單一 active token、exactly-once completion 皆有 gdUnit4 RED→GREEN 測試，測試以 exit code 判定通過（`docs/09_TEST_AND_ACCEPTANCE.md:27`）。
 - [ ] `L2-2` 遲到或不匹配的 `complete_presentation` 呼叫不改變 state、不重複解鎖 `ActionBar`：至少一則 gdUnit4 測試模擬「fallback timeout 已推進 state 後，原始 completion 才抵達」並斷言其無效。
-- [ ] `L2-3` Deal card 與 Dealer hole card reveal 两个 blocking event 在演出期間 `ActionBar.disabled == true`，演出完成或 fallback timeout 後由 `RoundController` 而非 `PresentationController` 決定下一組合法 action（場景測試斷言呼叫來源）。
+- [ ] `L2-3` Deal card 與 Dealer hole card reveal 兩個 blocking event 在演出期間 `ActionBar.disabled == true`，演出完成或 fallback timeout 後由 `RoundController` 而非 `PresentationController` 決定下一組合法 action（場景測試斷言呼叫來源）。
 - [ ] `L2-4` 素材載入失敗路徑：模擬資源載入失敗，斷言 fallback 於 `fallback_duration_ms` 內送出 `presentation_finished`，不永久卡在 HOLD（對應 `docs/03_INTERACTION_CONTRACTS.md:142-149`）。
 - [ ] `L2-5` 上表列出的 blocking/non-blocking／`fallback_duration_ms` mapping 已記錄在專案的 Presentation Mapping（沿用 `docs/03` 格式），且與程式碼常數一致（無 magic number 漂移）。
 
@@ -148,7 +150,7 @@ Version: 0.1.0
 
 - [ ] `L3-1` `GameRoot` 子節點順序（或等效 z-index/CanvasLayer 設定）符合 `L3Root < L2Root < L1Root`（由下到上），由 gdUnit4 scene test 對節點樹結構斷言。
 - [ ] `L3-2` `L3Root` 及其子節點 `mouse_filter`／`Control.MOUSE_FILTER_IGNORE`（或 2D 對應設定）為忽略輸入，`ActionBar` 命中測試在 L3 佔位素材疊加下仍可觸發（自動化 input 命中測試，非人工假設）。
-- [ ] `L3-3` Dealer hole card reveal 觸發的 L2 overlay 結束後，L3 loop 恢復到正確狀態：可觀測訊號（例如 loop 播放位置／狀態旗標）在 overlay 前後一致，非停在最後一幀或跳到錯誤 progression 狀態。
+- [ ] `L3-3` Dealer hole card reveal 觸發的 L2 overlay 結束後，L3 loop 恢復到正確狀態：依「L3 Behavior」#6 的最小判準，overlay 前後為同一個 loop 旗標／同一個 idle 動畫（可觀測訊號斷言），非停在最後一幀或跳到錯誤狀態；此判準綁定單一 L3 狀態前提，多重 progression 狀態出現時需重新定義。
 - [ ] `L3-4` 完整跑兩個連續回合（`NEXT_ROUND` 後再跑一次 `BETTING → ROUND_END`），L3 loop 全程未中斷或需要人工介入重啟。
 - [ ] `L3-5` L3 佔位素材為中性內容（不含 progression／內容尺度決策），依「Out of Scope」與 `specs/001` Task 8 既有 placeholder 定義核對。
 
