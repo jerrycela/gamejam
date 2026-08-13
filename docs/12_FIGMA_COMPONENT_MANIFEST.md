@@ -35,11 +35,17 @@
 | `CARD_BACK` | Card Back | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/card_view.tscn` | `Style` | — | `PENDING_CREATE` |
 | `HAND_DEALER` | Dealer Hand Area | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/hand_view.tscn` | `Count / Hidden Card` | — | `PENDING_CREATE` |
 | `HAND_PLAYER` | Player Hand Area | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/hand_view.tscn` | `Count` | — | `PENDING_CREATE` |
-| `VALUE_TOTAL` | Hand Total | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/value_display.tscn` | `Soft / Hard / Bust` | — | `PENDING_CREATE` |
+| `VALUE_TOTAL` | Hand Total | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `21:62` | `DRAFT` | `native_control` | `res://ui/components/value_display.tscn` | `State` = `Hard / Soft / Bust`（variants）+ `Value`（text property） | `2026-08-13` | `HUMAN_APPROVAL_REQUIRED` |
 | `VALUE_CHIPS` | Chips Counter | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/value_display.tscn` | `Positive / Low / Zero` | — | `PENDING_CREATE` |
 | `VALUE_BET` | Bet Counter | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/value_display.tscn` | `Editable / Locked` | — | `PENDING_CREATE` |
 | `STATUS_RESULT` | Round Result | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/result_banner.tscn` | `Win / Lose / Push / Bust / Blackjack` | — | `PENDING_CREATE` |
-| `PANEL_ACTION_BAR` | Action Bar | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | — | `NOT_CREATED` | `native_control` | `res://ui/components/action_bar.tscn` | `Player State` | — | `PENDING_CREATE` |
+| `PANEL_ACTION_BAR` | Action Bar | <https://www.figma.com/design/vufbRMFF4rpBt6W1jedHxb> | `21:38` | `DRAFT` | `native_control` | `res://ui/components/action_bar.tscn` | `Player State` = `Betting / PlayerTurnFirst / PlayerTurnDecided / RoundEnd / Blocking` | `2026-08-13` | `HUMAN_APPROVAL_REQUIRED` |
+
+### 待處理變更（尚未生效，不可視為已完成）
+
+| component_id | 變更內容 | 狀態 |
+|---|---|---|
+| `BTN_DEAL` | 新增 `Label` TEXT property（預設 `DEAL`，另一合法值 `NEXT ROUND`），使同一元件可服務 `DEAL` 與 `NEXT_ROUND` 兩個動作。`State` 四個 variant 不變。作法沿用 `CARD_FACE` 以 `Rank` text property 避免 variant 爆炸的既有先例 | **實作中**。property 實際存在並經 `get_metadata` 複驗後，才可把 `approved_version` 推進為 `1.1.0`、`status` 改回 `HUMAN_APPROVAL_REQUIRED`（新增 property 屬視覺契約變更，需重新人工核准） |
 
 ## 3. Review Gate
 
