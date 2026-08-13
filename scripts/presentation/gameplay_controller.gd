@@ -62,6 +62,26 @@ const _OUTCOME_LABELS := {
 	BlackjackOutcome.Type.PLAYER_SURRENDER: "已投降",
 }
 
+## The 6 L2 dealer reaction assets (docs/06 §14 / Figma-registered) mapped
+## from all 8 BlackjackOutcome.Type values — verified against the actual
+## enum (scripts/core/blackjack_outcome.gd), not assumed. Two outcome pairs
+## share one asset: DEALER_BLACKJACK and DEALER_WIN both read as "the
+## player lost, no special fanfare" from the dealer's own reaction (only
+## PLAYER_BLACKJACK gets the dedicated BLACKJACK asset); PLAYER_WIN and
+## DEALER_BUST both read as "the player won" from the dealer's reaction
+## (the asset shows the dealer's face, not who specifically caused the
+## outcome).
+const _REACTION_TEXTURES := {
+	BlackjackOutcome.Type.PLAYER_BLACKJACK: preload("res://assets/textures/L2_DEALER_REACT_BLACKJACK_V001.png"),
+	BlackjackOutcome.Type.DEALER_BLACKJACK: preload("res://assets/textures/L2_DEALER_REACT_PLAYER_LOSE_V001.png"),
+	BlackjackOutcome.Type.PLAYER_WIN: preload("res://assets/textures/L2_DEALER_REACT_PLAYER_WIN_V001.png"),
+	BlackjackOutcome.Type.DEALER_WIN: preload("res://assets/textures/L2_DEALER_REACT_PLAYER_LOSE_V001.png"),
+	BlackjackOutcome.Type.PLAYER_BUST: preload("res://assets/textures/L2_DEALER_REACT_PLAYER_BUST_V001.png"),
+	BlackjackOutcome.Type.DEALER_BUST: preload("res://assets/textures/L2_DEALER_REACT_PLAYER_WIN_V001.png"),
+	BlackjackOutcome.Type.PUSH: preload("res://assets/textures/L2_DEALER_REACT_PUSH_V001.png"),
+	BlackjackOutcome.Type.PLAYER_SURRENDER: preload("res://assets/textures/L2_DEALER_REACT_SURRENDER_V001.png"),
+}
+
 var _controller: RoundController = null
 var _ledger: BetLedger = null
 var _presentation: PresentationController = null
@@ -72,6 +92,8 @@ var _hand_total: ValueDisplayView = null
 var _chips_label: Label = null
 var _bet_label: Label = null
 var _result_banner: Label = null
+var _dealer_idle_view: DealerIdleView = null
+var _dealer_reaction_view: DealerReactionView = null
 
 
 ## `ledger` is the same BetLedger instance the caller constructed
@@ -90,6 +112,8 @@ func setup(
 	chips_label: Label,
 	bet_label: Label,
 	result_banner: Label,
+	dealer_idle_view: DealerIdleView = null,
+	dealer_reaction_view: DealerReactionView = null,
 ) -> void:
 	_controller = round_controller
 	_ledger = ledger
@@ -101,6 +125,8 @@ func setup(
 	_chips_label = chips_label
 	_bet_label = bet_label
 	_result_banner = result_banner
+	_dealer_idle_view = dealer_idle_view
+	_dealer_reaction_view = dealer_reaction_view
 
 	if not _action_bar.action_requested.is_connected(_on_action_requested):
 		_action_bar.action_requested.connect(_on_action_requested)
@@ -120,6 +146,38 @@ func refresh() -> void:
 	_render_hand_total()
 	_render_chips_and_bet()
 	_render_result_banner()
+	_render_dealer_reaction()
+
+
+## The at-most-one-of-6 reaction texture for a given BlackjackOutcome.Type,
+## or null for any other int — a pure lookup with no instance state, so it
+## can be (and is, in tests/ui/test_l2_dealer_reaction.gd) called on a
+## GameplayController that was never setup().
+func reaction_texture_for_outcome(outcome: int) -> Texture2D:
+	return _REACTION_TEXTURES.get(outcome, null)
+
+
+## specs/003 L3-3: this NEVER calls stop()/pause() on DealerIdleView's
+## AnimationPlayer — only hides its *rendering* (Control.visible), so the
+## idle loop keeps running underneath and is_idle_loop_active() stays true
+## the whole time (verified in
+## tests/ui/test_l2_dealer_reaction.gd::test_idle_loop_keeps_playing_underneath_the_reaction_overlay_l3_3,
+## which would fail if this ever changed to stop()/pause()).
+func _render_dealer_reaction() -> void:
+	if _dealer_reaction_view == null or _dealer_idle_view == null:
+		return
+	var show_reaction := (
+		_controller.current_state == RoundController.State.ROUND_END
+		and _controller.has_outcome()
+	)
+	if show_reaction:
+		var reaction_texture := reaction_texture_for_outcome(_controller.outcome())
+		if reaction_texture != null:
+			_dealer_reaction_view.show_texture(reaction_texture)
+			_dealer_idle_view.visible = false
+			return
+	_dealer_reaction_view.hide_reaction()
+	_dealer_idle_view.visible = true
 
 
 func _on_action_requested(action_id: StringName) -> void:

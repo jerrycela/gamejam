@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Theme" path="res://ui/theme/lsbj_theme.tres" id="1"]
 [ext_resource type="PackedScene" path="res://ui/components/card_view.tscn" id="2"]
@@ -12,6 +12,13 @@
 [ext_resource type="Script" path="res://scripts/presentation/dealer_idle_view.gd" id="10"]
 [ext_resource type="Script" path="res://scripts/presentation/game_bootstrap.gd" id="11"]
 [ext_resource type="Script" path="res://scripts/presentation/gameplay_controller.gd" id="12"]
+[ext_resource type="Script" path="res://scripts/presentation/dealer_reaction_view.gd" id="13"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_BLACKJACK_V001.png" id="14"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_PLAYER_LOSE_V001.png" id="15"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_PLAYER_WIN_V001.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_PLAYER_BUST_V001.png" id="17"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_PUSH_V001.png" id="18"]
+[ext_resource type="Texture2D" path="res://assets/textures/L2_DEALER_REACT_SURRENDER_V001.png" id="19"]
 
 [sub_resource type="Animation" id="Animation_dealer_idle_breathe"]
 resource_name = "idle_breathe"
@@ -129,6 +136,23 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
+
+[node name="ReactionImage" type="TextureRect" parent="L2Root/DealerReactionLayer"]
+## Anchored identically to L3Root/DealerIdleView (same anchor_right/
+## anchor_bottom/expand_mode/stretch_mode) so swapping between the idle
+## loop and a reaction never shifts the dealer's on-screen position —
+## verified in tests/ui/test_l2_dealer_reaction.gd. Hidden by default;
+## GameplayController is the only thing that toggles visibility/texture
+## (ROUND_END shows the outcome-matched reaction, the next DEAL/NEXT_ROUND
+## press hides it again).
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 0.537
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+visible = false
+script = ExtResource("13")
 
 [node name="ResultOverlay" type="Control" parent="L2Root"]
 layout_mode = 1

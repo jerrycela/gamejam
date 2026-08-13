@@ -25,6 +25,10 @@ extends Node
 @onready var _table_ui: Node = get_node("../L1Root/TableUI")
 @onready var _action_bar: ActionBarView = _table_ui.find_child("ActionBar", true, false)
 @onready var _fallback_overlay: Control = get_node("../L2Root/ResultOverlay")
+@onready var _dealer_idle_view: DealerIdleView = get_node("../L3Root/DealerIdleView")
+@onready var _dealer_reaction_view: DealerReactionView = get_node(
+	"../L2Root/DealerReactionLayer"
+).find_child("ReactionImage", true, false)
 
 var controller: RoundController = null
 
@@ -63,6 +67,8 @@ func bootstrap(shoe_id: String, shuffle_seed: int) -> void:
 		_table_ui.find_child("ChipsDisplay", true, false),
 		_table_ui.find_child("BetControl", true, false),
 		_table_ui.find_child("ResultBanner", true, false),
+		_dealer_idle_view,
+		_dealer_reaction_view,
 	)
 
 
