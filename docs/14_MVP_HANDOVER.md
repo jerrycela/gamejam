@@ -8,9 +8,13 @@
 `specs/003_LAYERED_PRESENTATION_PIPELINE.md` 的 **19 條驗收條件全數達成**。這份 spec 就是 MVP 的定義。
 
 ```
-gdUnit4：171 test cases，0 errors／failures／flaky／skipped／orphans，exit code 0
+gdUnit4：216 test cases，0 errors／failures／flaky／skipped／orphans，exit code 0
 headless parse check：exit code 0
 ```
+
+> **這個數字會過期。** 讀到時請自己跑一次，並用靜態原始碼交叉核對
+> （`grep -rc '^func test_' tests/core/*.gd tests/ui/*.gd`），因為失敗的測試
+> 會讓同檔案後續測試靜默消失，而唯一症狀就是這個數字（見 §4.6）。
 
 驗收指令（`docs/09_TEST_AND_ACCEPTANCE.md` 為權威來源）：
 
@@ -23,7 +27,9 @@ cd /Users/admin/blackjack/LOW_SCALE_BLACKJACK_AI_NATIVE_BLUEPRINT_V3_1
 
 **`--ignoreHeadlessMode` 不可省略**，否則 gdUnit4 的 headless 檢查會直接擋下並回報 `Abnormal exit with 103`，看起來像測試壞了。
 
-**遊戲可以執行**：開啟專案按執行，`GameBootstrap` 會產生並記錄牌靴 id 與洗牌 seed、建立核心物件、接線演出層，畫面進入 `BETTING` 並顯示 DEAL 按鈕。
+**遊戲可以玩**：開啟專案按執行即可用滑鼠玩完整一局——發牌、要牌／停牌／加倍／投降、莊家翻底牌補牌、結算、下一局。介面為繁體中文，有逐張發牌與翻牌動畫、點數與籌碼滾動、荷官依結果切換表情。
+
+**尚無音效**（檔案已備好但未接線）。
 
 ## 2. MVP 的定義是什麼——這點最容易誤解
 
@@ -171,11 +177,19 @@ MVP 是**把 L1／L2／L3 分層架構跑起來**。21 點規則是載體，不�
 
 沒有既定順序，依需求選：
 
-1. **玩家輸入接線** —— 目前 `GameBootstrap` 只接好狀態機與顯示，按鈕點擊還沒接到 action。這是「真的能玩」的最後一段。
-2. **其餘 6 個 Figma 元件** —— `CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`，需先立後續 spec。
-3. **L2 反應演出接線** —— 6 張荷官反應素材已產出並驗證過機位一致（相對 idle：頂端偏移 ≤25px、高度差 ≤21px、中心橫向偏移 ≤15px），但還沒接到 `DealerReactionLayer`。
-4. **progression 內容 spec** —— 需使用者決定內容尺度後才能開始。
-5. **Inter 字型內嵌** —— Theme 的字級結構正確，但字族目前回退到 Godot 預設。
+**最高優先（見 §10）**：把寫死在 `const` 的參數搬進編輯器可調的形式。在那之前，每新增一個動畫就是多鎖死一個使用者碰不到的旋鈕。
+
+其餘候選，無既定順序：
+
+1. **音效接線** —— `assets/audio/` 有 9 個合成音效但**尚未接線**。接時請放場景節點而非程式碼建立（見 §10）。
+2. **`Bet Controls` 可操作** —— 簡報把它列為獨立可操作元件，`BetLedger.set_selected_bet()` 邏輯完整存在但**沒有任何 UI 呼叫它**，下注永遠固定 10。與反應圖曾經是同一種「邏輯在、沒接線」形態。
+3. **呈現層分歧** —— 簡報第 9 頁「向下指向到無數個可能的分歧」目前只在規則層成立（8 種 outcome），畫面呈現的分支僅有荷官反應圖與結果文字。
+4. **節點查找脆弱性** —— 大量 `find_child("名字")`，使用者在編輯器改名就會壞且無明顯錯誤。見 §10 末。
+5. **其餘 6 個 Figma 元件** —— `CARD_BACK`、`HAND_DEALER`、`HAND_PLAYER`、`VALUE_CHIPS`、`VALUE_BET`、`STATUS_RESULT`，需先立後續 spec。
+6. **progression 內容 spec** —— 需使用者決定內容尺度才能開始。
+7. **Inter 字型內嵌** —— 中文已用思源黑體（`assets/fonts/`，OFL），但 Figma 指定的 Inter 尚未內嵌，拉丁字仍回退預設。
+
+**已完成、不要重做**：玩家輸入接線（`GameplayController`，真實點擊驗證過完整一局）、L2 荷官反應接線、繁體中文化、字型內嵌、逐張發牌與翻底牌動畫、點數與籌碼滾動。
 
 ## 9. 相關文件
 
