@@ -90,7 +90,8 @@
 ## Visual Status
 
 - Figma connector: **reconnected 2026-08-13**。`whoami` = `pingliu@cela-tech.com`，於 `CELA International Corp.`（org tier）持 **Full 席位**，具寫入權限。先前卡住的 View-only 來源為 `pingliu's team`（starter tier）。
-- Figma component system: **0 / 11 元件已建立**（2026-08-13 以 `get_metadata` 實地查核）。design file `vufbRMFF4rpBt6W1jedHxb` 目前僅有 page `0:1「00 Cover」` 與封面 frame `3:7`。`docs/12` 先前將 `BTN_ACTION`(`5:2`) 與 `BTN_DEAL`(`9:17`) 記為 `DRAFT` 屬誤記，該兩個 node 從未存在，已回退為 `NOT_CREATED`。視覺工作起點為從零建立元件。
+- Figma component system: `BTN_ACTION`(`5:2`) 與 `BTN_DEAL`(`9:17`) **確認存在且為 `DRAFT`**，另有 `05 Card` page 的 `L1/Card/Face`；`02 Foundations` 已有 semantic color variables（`var(--lsbj-color-*)`）與 typography／spacing／motion 區塊。以上均為既有成果，尚未通過 Human Visual Approval。剩餘元件仍為 `PENDING_CREATE`，實際完成數待逐一 Visual Review Gate 自檢後確認。
+- **查核方法警示**：2026-08-13 曾以不帶 `nodeId` 的 `get_metadata(fileKey)` 頁面列表誤判上述元件不存在，並一度錯誤地把 manifest 回退為 `NOT_CREATED`，已還原。判定 node 存在性一律直接查 nodeId，不可用頁面列表推論不存在（詳見 `docs/12` Verification Log）。
 - Original Google Slides reference deck: 9/9 slides inspected；L1/L2/L3 and WAIT/HOLD/LOOP intent traced in `docs/11_REFERENCE_DECK_ANALYSIS.md`.
 - Final Dealer reference: not yet approved.
 - L1 assets: not yet approved.
