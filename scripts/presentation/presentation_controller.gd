@@ -23,6 +23,23 @@ extends Node
 const FALLBACK_DEAL_CARD_MS: int = 1500
 const FALLBACK_DEALER_HOLE_REVEAL_MS: int = 1200
 
+## docs/13 §2.1 (team-lead to register): the *normal* completion path for
+## each blocking presentation. Before this, nothing in production ever
+## called notify_presentation_finished() — every presentation ran out its
+## full FALLBACK_*_MS safety-net window before unblocking, even though
+## there is no real animation yet to wait for (team-lead's soak test:
+## barrier held exactly ~1504ms on every single deal, matching
+## FALLBACK_DEAL_CARD_MS to the millisecond). These dwell timers give the
+## player a short, deliberate pause — long enough to read that something
+## happened, far shorter than the safety net — then call
+## notify_presentation_finished() themselves: the same public entry point a
+## real future animation would call. FALLBACK_DEAL_CARD_MS/
+## FALLBACK_DEALER_HOLE_REVEAL_MS stay exactly as they were (1500/1200) —
+## they remain the safety net for a stuck/failed asset load, not the normal
+## timing; only the ceiling's *meaning* was wrong, not its value.
+const DEAL_CARD_PRESENTATION_DWELL_MS: int = 350
+const DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS: int = 300
+
 ## docs/03_INTERACTION_CONTRACTS.md:142-149 (Failure Fallback) step 2-3: on
 ## asset load failure, show a text fallback for a bounded dwell, then
 ## complete. 400ms is a judgment call (not a Figma motion token — `02
@@ -59,11 +76,19 @@ var _fallback_timer: Timer = null
 var _fallback_visual_timer: Timer = null
 var _fallback_label: Label = null
 var _pending_fallback_visual_token: String = ""
+var _completion_timer: Timer = null
+var _pending_completion_token: String = ""
 
 # Overridable only through override_fallback_ms_for_test(); production code
 # must always read FALLBACK_DEAL_CARD_MS / FALLBACK_DEALER_HOLE_REVEAL_MS.
 var _fallback_ms_deal_card: int = FALLBACK_DEAL_CARD_MS
 var _fallback_ms_dealer_hole_reveal: int = FALLBACK_DEALER_HOLE_REVEAL_MS
+
+# Overridable only through override_presentation_dwell_ms_for_test();
+# production code must always read DEAL_CARD_PRESENTATION_DWELL_MS /
+# DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS.
+var _dwell_ms_deal_card: int = DEAL_CARD_PRESENTATION_DWELL_MS
+var _dwell_ms_dealer_hole_reveal: int = DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS
 
 
 ## `fallback_overlay` is optional (specs/003 L2-4): the Control this
@@ -140,6 +165,13 @@ func report_asset_load_failure(asset_id: String) -> void:
 	)
 	_show_fallback_visual()
 	_pending_fallback_visual_token = _active_token
+	# The normal-path completion timer racing to finish "on schedule" would
+	# be reporting a success that didn't happen — an asset load failure
+	# means the normal path is moot, so stop it rather than let it win a
+	# race it has no business winning.
+	if _completion_timer != null:
+		_completion_timer.stop()
+	_pending_completion_token = ""
 	_start_fallback_visual_timer(FALLBACK_VISUAL_DWELL_MS)
 
 
@@ -155,6 +187,22 @@ func force_fallback_timeout_for_test() -> void:
 ## fallback *visual*'s own dwell timer (started by report_asset_load_failure()).
 func force_fallback_visual_dwell_elapsed_for_test() -> void:
 	_on_fallback_visual_dwell_elapsed()
+
+
+## Test seam: same idea as force_fallback_timeout_for_test(), for the
+## *normal* per-presentation completion dwell (started by _begin_presentation()
+## itself, not by a failure path) — lets a synchronous test prove the normal
+## path fires without a real wall-clock wait.
+func force_completion_dwell_elapsed_for_test() -> void:
+	_on_completion_dwell_elapsed()
+
+
+## Test seam: shortens both completion dwells so a real Timer-driven test can
+## finish quickly. Never used by production wiring — mirrors
+## override_fallback_ms_for_test().
+func override_presentation_dwell_ms_for_test(ms: int) -> void:
+	_dwell_ms_deal_card = ms
+	_dwell_ms_dealer_hole_reveal = ms
 
 
 ## True while the fallback text is on screen — from report_asset_load_failure()
@@ -207,7 +255,14 @@ func _begin_presentation(kind: StringName, fallback_ms: int, round_id: String) -
 	_active_kind = kind
 	_set_action_bar_disabled(true)
 	_start_fallback_timer(fallback_ms)
+	_start_completion_timer(token, _dwell_ms_for_kind(kind))
 	presentation_started.emit(kind, token)
+
+
+func _dwell_ms_for_kind(kind: StringName) -> int:
+	if kind == &"DEALER_HOLE_REVEAL":
+		return _dwell_ms_dealer_hole_reveal
+	return _dwell_ms_deal_card
 
 
 func _complete(token: String, via_fallback: bool) -> bool:
@@ -221,6 +276,9 @@ func _complete(token: String, via_fallback: bool) -> bool:
 		return false
 	if _fallback_timer != null:
 		_fallback_timer.stop()
+	if _completion_timer != null:
+		_completion_timer.stop()
+	_pending_completion_token = ""
 	_active_token = ""
 	# _active_kind is deliberately NOT cleared here: `_active_token.is_empty()`
 	# is the sole "no presentation is active" signal used elsewhere in this
@@ -271,6 +329,41 @@ func _start_fallback_visual_timer(dwell_ms: int) -> void:
 	_fallback_visual_timer.stop()
 	_fallback_visual_timer.wait_time = maxf(0.001, dwell_ms / 1000.0)
 	_fallback_visual_timer.start()
+
+
+## docs/13 §2.1: the normal-path completion — the dwell timer started by
+## _begin_presentation() itself elapsing means "enough time has passed for
+## the (future) animation to have plausibly finished", so this calls the
+## exact same _complete() path notify_presentation_finished() would, with
+## via_fallback = false. If a real completion or the fallback safety net has
+## already won the race (_pending_completion_token cleared by _complete() or
+## report_asset_load_failure()), this is a no-op — _complete()'s own
+## exactly-once guard would have caught it anyway, but checking here avoids
+## emitting a pointless rejected-completion diagnostic for a timer that was
+## always going to lose gracefully.
+func _on_completion_dwell_elapsed() -> void:
+	var token := _pending_completion_token
+	_pending_completion_token = ""
+	if token.is_empty():
+		return
+	_complete(token, false)
+
+
+## docs/13 §2.1: starts (once, then reuses) the Timer backing the normal
+## completion path. Mirrors _start_fallback_timer()/_start_fallback_visual_timer()
+## exactly — one-shot, restarted fresh on every call, duration read from the
+## per-kind dwell constant (see _dwell_ms_for_kind()), never from the fallback
+## constants.
+func _start_completion_timer(token: String, dwell_ms: int) -> void:
+	_pending_completion_token = token
+	if _completion_timer == null:
+		_completion_timer = Timer.new()
+		_completion_timer.one_shot = true
+		_completion_timer.timeout.connect(_on_completion_dwell_elapsed)
+		add_child(_completion_timer)
+	_completion_timer.stop()
+	_completion_timer.wait_time = maxf(0.001, dwell_ms / 1000.0)
+	_completion_timer.start()
 
 
 ## Creates (once) and shows the fallback Label inside `_fallback_overlay`.

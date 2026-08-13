@@ -320,6 +320,102 @@ func test_late_completion_diagnostic_reports_the_kind_it_was_late_for() -> void:
 	)
 
 
+## Regression guard for the exact bug team-lead's soak test found: every
+## deal previously held the input barrier for the full FALLBACK_DEAL_CARD_MS
+## (1500ms) because nothing ever called notify_presentation_finished() in
+## production — the fallback timeout was the only path that ever completed
+## a presentation. This is a structural check that the new normal-path
+## dwell constants stay well under their matching ceiling (docs/13 §2.1),
+## not just less-than: "明顯短於" is checked as "at most half the ceiling".
+func test_presentation_dwell_constants_are_well_under_their_fallback_ceiling() -> void:
+	assert_int(PresentationController.DEAL_CARD_PRESENTATION_DWELL_MS).is_less(
+		PresentationController.FALLBACK_DEAL_CARD_MS
+	)
+	assert_int(PresentationController.DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS).is_less(
+		PresentationController.FALLBACK_DEALER_HOLE_REVEAL_MS
+	)
+	assert_int(PresentationController.DEAL_CARD_PRESENTATION_DWELL_MS).is_less_equal(
+		PresentationController.FALLBACK_DEAL_CARD_MS / 2
+	)
+	assert_int(PresentationController.DEALER_HOLE_REVEAL_PRESENTATION_DWELL_MS).is_less_equal(
+		PresentationController.FALLBACK_DEALER_HOLE_REVEAL_MS / 2
+	)
+
+
+## Named-method recorder (not an inline lambda — see the lambda-adjacency
+## discovery bug noted elsewhere in this test suite) for the two genuine
+## real-Timer end-to-end checks below.
+var _recorded_kind: StringName = &""
+var _recorded_via_fallback: bool = true
+
+
+func _record_completion(kind: StringName, _token: String, via_fallback: bool) -> void:
+	_recorded_kind = kind
+	_recorded_via_fallback = via_fallback
+
+
+## Genuine end-to-end confidence check (real Timer, real wall-clock wait —
+## same style as test_fallback_timer_actually_fires_and_completes_the_presentation):
+## a deal presentation must complete on its own, via the *normal* dwell path
+## (via_fallback == false), well before FALLBACK_DEAL_CARD_MS elapses — not
+## by silently riding out the safety net every single time.
+func test_deal_presentation_completes_via_the_normal_dwell_path_well_before_the_fallback_ceiling() -> void:
+	var presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(presentation)
+	var controller := _make_controller()
+	presentation.setup(controller, null)
+	assert_bool(controller.place_bet(100)).is_true()
+	presentation.presentation_completed.connect(_record_completion)
+
+	var start_ms := Time.get_ticks_msec()
+	presentation.begin_deal_presentation("round-normal-dwell")
+
+	await get_tree().create_timer(0.6).timeout
+
+	var elapsed_ms := Time.get_ticks_msec() - start_ms
+	assert_str(presentation.active_token()).is_equal("")
+	assert_bool(elapsed_ms < FALLBACK_DEAL_CARD_MS).is_true()
+	assert_str(String(_recorded_kind)).is_equal("DEAL_CARD")
+	assert_bool(_recorded_via_fallback).is_false()
+
+
+## Same proof for the dealer hole reveal's own (shorter) dwell.
+func test_dealer_hole_reveal_completes_via_the_normal_dwell_path_well_before_the_fallback_ceiling() -> void:
+	var presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(presentation)
+	var controller := _make_controller_ready_for_dealer_turn()
+	presentation.setup(controller, null)
+	presentation.presentation_completed.connect(_record_completion)
+
+	var start_ms := Time.get_ticks_msec()
+	presentation.begin_dealer_hole_reveal_presentation()
+
+	await get_tree().create_timer(0.6).timeout
+
+	var elapsed_ms := Time.get_ticks_msec() - start_ms
+	assert_str(presentation.active_token()).is_equal("")
+	assert_bool(elapsed_ms < FALLBACK_DEALER_HOLE_REVEAL_MS).is_true()
+	assert_str(String(_recorded_kind)).is_equal("DEALER_HOLE_REVEAL")
+	assert_bool(_recorded_via_fallback).is_false()
+
+
+## Test seam parity with force_fallback_timeout_for_test(): lets a
+## synchronous test trigger the normal-path completion without a real wait.
+func test_force_completion_dwell_elapsed_for_test_completes_without_via_fallback() -> void:
+	var presentation: PresentationController = auto_free(PresentationController.new())
+	add_child(presentation)
+	var controller := _make_controller()
+	presentation.setup(controller, null)
+	assert_bool(controller.place_bet(100)).is_true()
+	presentation.presentation_completed.connect(_record_completion)
+	presentation.begin_deal_presentation("round-force-dwell")
+
+	presentation.force_completion_dwell_elapsed_for_test()
+
+	assert_str(presentation.active_token()).is_equal("")
+	assert_bool(_recorded_via_fallback).is_false()
+
+
 func _round_controller_action_id(button_action: int) -> StringName:
 	match button_action:
 		ActionButtonView.Action.HIT:
