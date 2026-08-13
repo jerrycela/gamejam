@@ -12,7 +12,7 @@ Version: 0.2.1
 2. **L2 — 演出契約成立**：`presentation_token` exactly-once guard、input barrier、fallback timeout 依 `docs/03_INTERACTION_CONTRACTS.md` 運作，`PresentationController` 不自行猜下一個 state。
 3. **L3 — 分層本身成立**：scene tree 固定為 `L3Root` 最底、`L2Root` 中、`L1Root` 最高；L3 持續 loop、可被 L2 暫時 overlay／取代後恢復、永不攔截輸入。
 
-本規格**不修改**、**不推翻** `specs/001_FIRST_VERTICAL_SLICE.md` 的任何 Non-Goal，包含「Figma pixel-perfect sync」——該項排除的是像素級對齊保真度標準，不排除本規格要求的元件化管線本身（`AGENTS.md:32` 已把「Figma 中已批准的 Component／Screen」列為 source-of-truth 第 4 項，排在 Godot implementation 之上）。
+本規格**不修改**、**不推翻** `specs/001_FIRST_VERTICAL_SLICE.md` 的任何 Non-Goal，包含「Figma pixel-perfect sync」——該項排除的是像素級對齊保真度標準，不排除本規格要求的元件化管線本身（`AGENTS.md:61` 已把「Figma 中已批准的 Component／Screen」列為 source-of-truth 第 4 項，排在 Godot implementation 之上）。
 
 ## Player Behavior
 
@@ -99,11 +99,11 @@ Version: 0.2.1
 
 依 `AGENTS.md` §6 與 `docs/01_GAME_AND_LAYER_SPEC.md` §3，以下在本規格範圍內視為驗收失敗：
 
-- L1 自行計算 Blackjack 勝負或修改 hand total（`AGENTS.md:57`）。
-- L2 決定 outcome 或改變 settlement 結果（`AGENTS.md:71`）。
-- L3 改變 Blackjack 規則或攔截玩家輸入（`AGENTS.md:82`，本文件「L3 Behavior」#4）。
-- Dealer／背景素材被 `Button` 節點或 `HandEvaluator` 直接引用（`AGENTS.md:109`）。
-- 任何完整畫面用單一扁平圖片呈現，而非多個 scene 組合（`AGENTS.md:103`）。
+- L1 自行計算 Blackjack 勝負或修改 hand total（`AGENTS.md:86`）。
+- L2 決定 outcome 或改變 settlement 結果（`AGENTS.md:100`）。
+- L3 改變 Blackjack 規則或攔截玩家輸入（`AGENTS.md:111`，本文件「L3 Behavior」#4）。
+- Dealer／背景素材被 `Button` 節點或 `HandEvaluator` 直接引用（`AGENTS.md:138`）。
+- 任何完整畫面用單一扁平圖片呈現，而非多個 scene 組合（`AGENTS.md:132`）。
 
 ---
 
