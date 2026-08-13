@@ -78,9 +78,12 @@ Codex Operating Rules
 | `docs/09_TEST_AND_ACCEPTANCE.md` | Rule、UI、Media、Visual QA |
 | `docs/10_KNOWLEDGE_GOVERNANCE_RISKS.md` | 知識資產版本、決策與風險 |
 | `docs/11_REFERENCE_DECK_ANALYSIS.md` | 原始 Google Slides 概念稿逐頁檢視與 MVP 對應 |
+| `docs/12_FIGMA_COMPONENT_MANIFEST.md` | Figma Component 與 Godot `.tscn` 對應的權威登記表（node id、批准版本、同步狀態） |
+| `docs/13_PRESENTATION_MAPPING.md` | L2/L3 blocking／non-blocking presentation 與 `fallback_duration_ms` 的登記表 |
 | `specs/000_HOUSE_RULES_DECISION.md` | 開工前必須確認的 House Rules |
 | `specs/001_FIRST_VERTICAL_SLICE.md` | 第一個可玩 Vertical Slice |
 | `specs/002_CORE_TRANSACTION_AND_DEAL_FLOW.md` | 下注交易、發牌、peek、natural 與 Shoe 重現語意 |
+| `specs/003_LAYERED_PRESENTATION_PIPELINE.md` | L1/L2/L3 三層管線的驗收規格：元件化、presentation contract、layering 本身 |
 | `specs/TEMPLATES.md` | Feature／Component／Asset Spec 模板 |
 
 ---

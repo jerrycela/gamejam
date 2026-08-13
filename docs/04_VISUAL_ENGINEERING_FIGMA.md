@@ -121,19 +121,21 @@ motion.easing.standard
 
 ## 5. L1 Component Catalog
 
-| Component ID | Figma component | Godot target | Key variants |
-|---|---|---|---|
-| `BTN_ACTION` | Action Button | `ActionButton.tscn` | action, state, size |
-| `BTN_DEAL` | Deal Button | `DealButton.tscn` | state, size |
-| `CARD_FACE` | Card Face | `CardView.tscn` | suit, rank, orientation |
-| `CARD_BACK` | Card Back | `CardView.tscn` | style |
-| `HAND_DEALER` | Dealer Hand Area | `HandView.tscn` | count, hidden-card |
-| `HAND_PLAYER` | Player Hand Area | `HandView.tscn` | count |
-| `VALUE_TOTAL` | Hand Total | `HandTotal.tscn` | soft/hard/bust |
-| `VALUE_CHIPS` | Chips Counter | `ChipsDisplay.tscn` | positive/low/zero |
-| `VALUE_BET` | Bet Counter | `BetDisplay.tscn` | editable/locked |
-| `STATUS_RESULT` | Round Result | `ResultBanner.tscn` | win/lose/push/etc. |
-| `PANEL_ACTION_BAR` | Action Bar | `ActionBar.tscn` | player state |
+**架構說明用，非權威登記表**：實際 Component 對應的 `.tscn` 路徑、node id、批准版本與同步狀態，一律以 `docs/12_FIGMA_COMPONENT_MANIFEST.md` 為準；本節若日後再度與 `docs/12` 不一致，以 `docs/12` 為正確答案。下表的「狀態」欄區分「已建立」（真實檔案存在，路徑為 Godot 實際使用的 snake_case 檔名）與「規劃中」（尚未建立，路徑為預定目標，不代表已存在）。
+
+| Component ID | Figma component | Godot target | 狀態 | Key variants |
+|---|---|---|---|---|
+| `BTN_ACTION` | Action Button | `res://ui/components/action_button.tscn` | 已建立 | action, state, size |
+| `BTN_DEAL` | Deal Button | `res://ui/components/deal_button.tscn` | 已建立 | state, size |
+| `CARD_FACE` | Card Face | `res://ui/components/card_view.tscn` | 已建立 | suit, rank, orientation |
+| `CARD_BACK` | Card Back | `res://ui/components/card_view.tscn`（共用） | 規劃中 | style |
+| `HAND_DEALER` | Dealer Hand Area | `res://ui/components/hand_view.tscn` | 規劃中，尚未建立 | count, hidden-card |
+| `HAND_PLAYER` | Player Hand Area | `res://ui/components/hand_view.tscn` | 規劃中，尚未建立 | count |
+| `VALUE_TOTAL` | Hand Total | `res://ui/components/value_display.tscn` | 已建立 | soft/hard/bust |
+| `VALUE_CHIPS` | Chips Counter | `res://ui/components/value_display.tscn`（共用） | 規劃中 | positive/low/zero |
+| `VALUE_BET` | Bet Counter | `res://ui/components/value_display.tscn`（共用） | 規劃中 | editable/locked |
+| `STATUS_RESULT` | Round Result | `res://ui/components/result_banner.tscn` | 規劃中，尚未建立 | win/lose/push/etc. |
+| `PANEL_ACTION_BAR` | Action Bar | `res://ui/components/action_bar.tscn` | 已建立 | player state |
 
 ---
 

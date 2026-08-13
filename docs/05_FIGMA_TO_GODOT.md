@@ -64,14 +64,26 @@ L1 highest
 
 ## 4. UI Scenes
 
+**架構說明用，非權威登記表**：實際存在哪些 `.tscn`、對應哪個 Figma Component、目前同步狀態，一律以 `docs/12_FIGMA_COMPONENT_MANIFEST.md` 為準。
+
+已建立：
+
 ```text
 res://ui/components/action_button.tscn
+res://ui/components/action_bar.tscn
 res://ui/components/card_view.tscn
-res://ui/components/hand_view.tscn
+res://ui/components/deal_button.tscn
 res://ui/components/value_display.tscn
-res://ui/components/result_banner.tscn
-res://ui/table_ui.tscn
 ```
+
+規劃中，尚未建立（目標路徑,非現況）：
+
+```text
+res://ui/components/hand_view.tscn
+res://ui/components/result_banner.tscn
+```
+
+`TableUI` 目前是 `scenes/game_root.tscn` 內的一個 `MarginContainer` 節點，不是獨立 `.tscn`（原規劃的 `res://ui/table_ui.tscn` 尚未拆出）；若日後拆成獨立 scene，應同步更新此節。
 
 每個 scene 只負責一個可理解的視覺／互動單位。
 

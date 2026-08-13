@@ -26,10 +26,17 @@ Read these files in order:
 8. docs/03_INTERACTION_CONTRACTS.md
 9. docs/04_VISUAL_ENGINEERING_FIGMA.md
 10. docs/05_FIGMA_TO_GODOT.md
-11. docs/07_SDD_WORKFLOW.md
-12. specs/000_HOUSE_RULES_DECISION.md
-13. specs/001_FIRST_VERTICAL_SLICE.md
-14. specs/002_CORE_TRANSACTION_AND_DEAL_FLOW.md
+11. docs/06_AI_ART_AND_MEDIA_PROMPTS.md — 圖片／影片 Prompt 與素材命名規則；動手產出或核對任何美術素材前必讀，否則容易重複產出或漏掉既有母帶登記。
+12. docs/07_SDD_WORKFLOW.md
+13. docs/08_CODEX_PLAYBOOK.md — 可直接套用的 Codex Prompt 範本；動手前先看有沒有現成 Prompt 可用，避免每次重新想措辭。
+14. docs/09_TEST_AND_ACCEPTANCE.md — 測試框架釘選（gdUnit4）與唯一指定的 headless 測試指令；**沒讀這份會用錯測試指令或框架，判斷「測試是否通過」會失準**。
+15. docs/10_KNOWLEDGE_GOVERNANCE_RISKS.md — 知識資產版本與風險登記；變更會影響既有素材／規格版本時必讀。
+16. docs/12_FIGMA_COMPONENT_MANIFEST.md — Figma Component 對應 Godot `.tscn` 的權威登記表（node id、批准版本、同步狀態）；**沒讀這份會不知道哪些元件已建立、哪些只是規劃中**。
+17. docs/13_PRESENTATION_MAPPING.md — L2/L3 blocking／non-blocking 與 `fallback_duration_ms` 的登記表；動 `PresentationController` 前必讀，避免 magic number 漂移。
+18. specs/000_HOUSE_RULES_DECISION.md
+19. specs/001_FIRST_VERTICAL_SLICE.md
+20. specs/002_CORE_TRANSACTION_AND_DEAL_FLOW.md
+21. specs/003_LAYERED_PRESENTATION_PIPELINE.md — 目前 MVP 現行的驗收依據（L1 元件化管線／L2 presentation contract／L3 layering 三個獨立證明）；動 `specs/003` 範圍內的任何元件、presentation 或場景樹之前必讀。
 
 Then inspect:
 - git status
